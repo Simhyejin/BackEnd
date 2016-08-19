@@ -43,6 +43,7 @@ namespace LoginServer
             {
                 AcceptClient();
             }
+            Console.ReadLine();
             Console.WriteLine("[Server]End");
         }
 
@@ -53,7 +54,7 @@ namespace LoginServer
             return Task.Run(() => {
                 IPEndPoint localEP = new IPEndPoint(IPAddress.Any, port);
 
-                listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 listenSocket.Bind(localEP);
                 listenSocket.Listen(backlog);
             });
@@ -62,13 +63,21 @@ namespace LoginServer
         public Task ConnectBEAsync(IPAddress ip, int port)
         {
             return Task.Run(() => {
-                socketBE = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                try
+                {
+                    socketBE = new Socket(SocketType.Stream, ProtocolType.Tcp);
 
-                IPEndPoint remoteEP = new IPEndPoint(ip, port);
+                    IPEndPoint remoteEP = new IPEndPoint(ip, port);
 
-                socketBE.Connect(remoteEP);
+                    socketBE.Connect(remoteEP);
 
-                Console.WriteLine("[Server][Connect] BE");
+                    Console.WriteLine("[Server][Connect] BE");
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("[Server][Connect] BE fail");
+                }
+                
             });
         }
 

@@ -53,7 +53,7 @@ namespace BackEnd
             return Task.Run(() => {
                 IPEndPoint localEP = new IPEndPoint(IPAddress.Any, port);
 
-                listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 listenSocket.Bind(localEP);
                 listenSocket.Listen(backlog);
             });
@@ -100,19 +100,18 @@ namespace BackEnd
         {
             try
             {
-                
-                if (acceptTask != null)
+                 if (acceptTask != null)
                 {
                     if (acceptTask.IsCompleted)
                     {
-                        Socket frontEnd = await AcceptAsync(listenSocket);
+                        Socket frontEnd = await AcceptAsync();
                         Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
                         Receive(frontEnd);
                     }
                 }
                 else
                 {
-                    Socket frontEnd = await AcceptAsync(listenSocket);
+                    Socket frontEnd = await AcceptAsync();
                     Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
                     Receive(frontEnd);
                 }
@@ -129,9 +128,23 @@ namespace BackEnd
                 
         }
 
-        private Task<Socket> AcceptAsync(Socket socket)
+        private Task<Socket> AcceptAsync()
         {
-            acceptTask = Task.Run<Socket> ( () => socket.Accept() );
+            acceptTask = Task.Run<Socket>(() => {
+                Socket socket;
+                try
+                {
+                    Console.WriteLine("Accepting...");
+                    socket= listenSocket.Accept();
+                }
+                catch (Exception)
+                {
+                    socket = null;
+                    Console.WriteLine("err");
+                }
+                
+                return socket;
+            } );
             return acceptTask;
         }
         #endregion

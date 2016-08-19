@@ -15,8 +15,6 @@ namespace LoginServer
     {
         private Socket listenSocket;
         private Socket socketBE;
-        
-        private Dictionary<string, Socket> frontEndList = null;
 
         private MConvert mc = new MConvert();
         private const int HEAD_SIZE = 4;
@@ -39,10 +37,12 @@ namespace LoginServer
         public async void Start(IPAddress ip, int port)
         {
             await Task.WhenAll(BindListenerAsync(this.port), ConnectBEAsync(ip, port));
+
             while (listening)
             {
                 AcceptClient();
             }
+
             Console.ReadLine();
             Console.WriteLine("[Server]End");
         }
@@ -94,15 +94,15 @@ namespace LoginServer
                 {
                     if (acceptTask.IsCompleted)
                     {
-                        Socket client = await AcceptAsync(listenSocket);
-                        Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", client.RemoteEndPoint.ToString());
+                        Socket client = await AcceptAsync();
+                        Console.WriteLine("[Server][Accept]  Client({0}) is Connected.", client.RemoteEndPoint.ToString());
                         Receive(client);
                     }
                 }
                 else
                 {
-                    Socket client = await AcceptAsync(listenSocket);
-                    Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", client.RemoteEndPoint.ToString());
+                    Socket client = await AcceptAsync();
+                    Console.WriteLine("[Server][Accept]  Client({0}) is Connected.", client.RemoteEndPoint.ToString());
                     Receive(client);
                 }
                 
@@ -118,9 +118,23 @@ namespace LoginServer
 
         }
 
-        private Task<Socket> AcceptAsync(Socket socket)
+        private Task<Socket> AcceptAsync()
         {
-            acceptTask = Task.Run<Socket>(() => socket.Accept());
+            acceptTask = Task.Run<Socket>(() => {
+                Socket socket;
+                try
+                {
+                    Console.WriteLine("Accepting...");
+                    socket = listenSocket.Accept();
+                }
+                catch (Exception)
+                {
+                    socket = null;
+                    Console.WriteLine("err");
+                }
+
+                return socket;
+            });
             return acceptTask;
         }
         #endregion
@@ -147,13 +161,13 @@ namespace LoginServer
 
 
             }
-            catch (SocketException)
+            catch (SocketException e )
             {
-                Console.WriteLine("[Server][Receive] Client({0}) error", socket.AddressFamily);
+                Console.WriteLine("[Server][Receive] Client({0}) error : {1}", socket.RemoteEndPoint.ToString(), e.ToString());
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Console.WriteLine("[Server][Receive] Client({0}) error", socket.AddressFamily);
+                Console.WriteLine("[Server][Receive] Client({0}) error : {1}", socket.RemoteEndPoint.ToString(), e.ToString());
 
             }
 
@@ -178,6 +192,7 @@ namespace LoginServer
                     Header header = (Header)mc.ByteToStructure(buffer, typeof(Header));
                     packet.data = null;
 
+                    packet.header = header;
                     int bodyLen = header.size;
 
                     if (bodyLen > 0)
@@ -190,7 +205,7 @@ namespace LoginServer
                         }
                         packet.data = buffer;
                     }
-                    Console.WriteLine("[Server][Receive] FrontEnd({0})", socket.RemoteEndPoint.ToString());
+                    Console.WriteLine("[Server][Receive] Client({0})", socket.RemoteEndPoint.ToString());
                     return packet;
                 }
                 catch (SocketException)
@@ -230,25 +245,93 @@ namespace LoginServer
             }
             catch (SocketException)
             {
-                Console.WriteLine("[Server][Send] FrontEnd({0}) error", socket.RemoteEndPoint.ToString());
+                Console.WriteLine("[Server][Send] Client({0}) error", socket.RemoteEndPoint.ToString());
             }
             catch (Exception)
             {
-                Console.WriteLine("[Server][Send] FrontEnd({0}) error", socket.RemoteEndPoint.ToString());
+                Console.WriteLine("[Server][Send] Client({0}) error", socket.RemoteEndPoint.ToString());
             }
         }
         #endregion
 
         private void ProcessRequest(Packet packet, Socket socket)
         {
+            switch (packet.header.code)
+            {
+                case Command.SIGNIN:
+                case Command.SIGNIN_FAIL:
+                case Command.SIGNIN_SUCCESS:
+                    SignIn(packet, socket);
+                    break;
+                case Command.SIGNUP:
+                case Command.SIGNUP_FAIL:
+                case Command.SIGNUP_SUCCESS:
+                    break;
+                default:
+                    break;
+            }
+        }
+
+
+
+        private void SignIn(Packet packet, Socket socket)
+        {
+            ushort command = packet.header.code;
+
+            if (command == Command.SIGNIN)
+            {
+                Console.WriteLine("[Server][SignIn] Client({0} Request) ", socket.RemoteEndPoint.ToString());
+                CFLoginRequest cfLoginRequest = (CFLoginRequest)mc.ByteToStructure(packet.data, typeof(CFLoginRequest));
+
+                char[] id = cfLoginRequest.id;
+                char[] pw = cfLoginRequest.password;
+                //string cookie = MakeCookie(id, pw);
+
+                FBLoginRequest fbLoginRequest = new FBLoginRequest(id, pw);
+
+                Packet sendPacket = new Packet();
+
+                sendPacket.data = mc.StructureToByte(fbLoginRequest);
+                sendPacket.header.code = command;
+                sendPacket.header.size = (ushort)sendPacket.data.Length;
+
+                Send(socketBE, sendPacket);
+
+                CFLoginResponse cfLoginResponse = new CFLoginResponse("10.100.58.4", 41469, "1234124");
+                sendPacket.data = mc.StructureToByte(cfLoginResponse);
+                sendPacket.header.code = Command.SIGNIN_SUCCESS;
+                sendPacket.header.size = (ushort)sendPacket.data.Length;
+
+                Send(socket, sendPacket);
+                Console.WriteLine("[Server][SignIn] Success({0}) Response", socket.RemoteEndPoint.ToString());
+
+
+            }
+            else if (command == Command.SIGNIN_FAIL)
+            {
+                Console.WriteLine("[Server][SignIn] BE({0}) Response", socket.RemoteEndPoint.ToString());
+            }
+            else if (command == Command.SIGNIN_SUCCESS)
+            {
+
+            }
+            else if (command == Command.DUMMY_SIGNIN)
+            {
+            }
+            else if (command == Command.DUMMY_SIGNIN_FAIL)
+            {
+            }
+            else if (command == Command.DUMMY_SIGNIN_SUCCESS)
+            {
+            }
+
 
         }
 
         private void CloseSocket(Socket socket)
         {
-            // frontEndList.Remove(socket);
             socket.Close();
-            Console.WriteLine("[Server][Close] FrontEnd({0}) ", socket.AddressFamily);
+            Console.WriteLine("[Server][Close] Client({0}) ", socket.RemoteEndPoint.ToString());
         }
 
 

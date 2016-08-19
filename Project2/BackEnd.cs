@@ -13,7 +13,6 @@ namespace BackEnd
     class BackEnd
     {
         private Socket listenSocket;
-        private Dictionary<string, Socket> frontEndList= null;
 
         private MConvert mc = new MConvert();
         private const int HEAD_SIZE = 4;
@@ -33,6 +32,7 @@ namespace BackEnd
             mysql = new MySQL();
             this.port = port;
             listening = true;
+            
         }
 
         public async void Start()
@@ -173,11 +173,11 @@ namespace BackEnd
             }
             catch (SocketException)
             {
-                Console.WriteLine("[Server][Receive] Client({0}) error", socket.AddressFamily);
+                Console.WriteLine("[Server][Receive] FrontEnd({0}) error", socket.RemoteEndPoint.ToString());
             }
             catch (Exception)
             {
-                Console.WriteLine("[Server][Receive] Client({0}) error", socket.AddressFamily);
+                Console.WriteLine("[Server][Receive] FrontEnd({0}) error", socket.RemoteEndPoint.ToString());
 
             }
 
@@ -200,6 +200,7 @@ namespace BackEnd
                     }
 
                     Header header = (Header)mc.ByteToStructure(buffer, typeof(Header));
+                    packet.header = header;
                     packet.data = null;
 
                     int bodyLen = header.size;
@@ -272,7 +273,7 @@ namespace BackEnd
         {
            // frontEndList.Remove(socket);
             socket.Close();
-            Console.WriteLine("[Server][Close] FrontEnd({0}) ", socket.AddressFamily);
+            Console.WriteLine("[Server][Close] FrontEnd({0}) ", socket.RemoteEndPoint.ToString());
         }
 
         private string MakeCookie(string id, string password)

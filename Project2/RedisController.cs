@@ -16,9 +16,11 @@ namespace BackEnd
     {
         const string REDIS_IP = "192.168.56.110";
         const int REDIS_PORT = 6379;
-        private ConnectionMultiplexer _redis = null;
+
+        private ConnectionMultiplexer redisdb = null;
         private IDatabase db = null;
         private ISubscriber pubsub = null;
+
         private static RedisController redisInstance = null;
 
 
@@ -42,6 +44,7 @@ namespace BackEnd
 
         
         private RedisController() { }
+
         public static RedisController RedisInstance
         {
             get
@@ -60,7 +63,7 @@ namespace BackEnd
 
         public ConnectionMultiplexer Redis
         {
-            get { return this._redis; }
+            get { return this.redisdb; }
         }
 
         
@@ -68,25 +71,25 @@ namespace BackEnd
         {
             try
             {
-                _redis = ConnectionMultiplexer.Connect("192.168.56.110:6379" + ",allowAdmin=true,password=433redis!");
-                pubsub = _redis.GetSubscriber();
-                db = _redis.GetDatabase();
+                redisdb = ConnectionMultiplexer.Connect("192.168.56.110:6379" + ",allowAdmin=true,password=433redis!");
+                pubsub = redisdb.GetSubscriber();
+                db = redisdb.GetDatabase();
                 Console.WriteLine("[ Redis ][ Connect ] Success");
                 return true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return false;
             }
         }
 
         
-        public FEInfo GetFEInfo(string feName)
+        public FrontEnd GetFEInfo(string feName)
         {
             // key : 
             HashEntry[] feInfo = db.HashGetAll(feName);
 
-            FEInfo fe = new FEInfo();
+            FrontEnd fe = new FrontEnd();
             for (int idx = 0; idx < feInfo.Length; idx++)
             {
                 // name
@@ -140,7 +143,7 @@ namespace BackEnd
             string key = feName + DELIMITER + FEServiceInfo;
 
             HashEntry[] feServiceInfo = db.HashGetAll(key);
-            FEInfo feService = new FEInfo();
+            FrontEnd feService = new FrontEnd();
             feService.Name = feName;
             foreach (HashEntry info in feServiceInfo)
             {
@@ -234,12 +237,11 @@ namespace BackEnd
         
         public bool SetUserLogin(string remoteName, long userNumId, bool state)
         {
-            string delimiter = ":";
             string login = "login";
             StringBuilder sb = new StringBuilder();
 
             sb.Append(remoteName);
-            sb.Append(delimiter);
+            sb.Append(DELIMITER);
             sb.Append(login);
 
             string key = sb.ToString();
@@ -249,12 +251,11 @@ namespace BackEnd
 
         public bool GetUserLogin(string remoteName, long userNumId)
         {
-            string delimiter = ":";
             string login = "login";
             StringBuilder sb = new StringBuilder();
 
             sb.Append(remoteName);
-            sb.Append(delimiter);
+            sb.Append(DELIMITER);
             sb.Append(login);
 
             string key = sb.ToString();
@@ -264,12 +265,11 @@ namespace BackEnd
 
         public bool DelUserLoginKey(string remoteName)
         {
-            string delimiter = ":";
             string login = "login";
             StringBuilder sb = new StringBuilder();
 
             sb.Append(remoteName);
-            sb.Append(delimiter);
+            sb.Append(DELIMITER);
             sb.Append(login);
 
             string key = sb.ToString();
@@ -435,7 +435,7 @@ namespace BackEnd
         public void ClearDB()
         {
             if (Redis != null)
-                _redis.GetServer(REDIS_IP, REDIS_PORT).FlushDatabase();
+                redisdb.GetServer(REDIS_IP, REDIS_PORT).FlushDatabase();
         }
     }
 

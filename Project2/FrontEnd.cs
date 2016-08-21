@@ -6,16 +6,16 @@ using System.Threading.Tasks;
 
 namespace BackEnd
 {
-    public class FEInfo
+    public class FrontEnd
     {
         private string name;
         private string ip;
         private int port;
 
 
-        public FEInfo() { }
+        public FrontEnd() { }
 
-        public FEInfo(string name, string ip, int port)
+        public FrontEnd(string name, string ip, int port)
         {
             this.name = name;
             this.ip = ip;

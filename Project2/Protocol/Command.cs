@@ -74,5 +74,23 @@ namespace BackEnd.Protocol
         public const ushort ADVERTISE = 1100;
         public const ushort ADVERTISE_SUCCESS = 1102;
         public const ushort ADVERTISE_FAIL = 1105;
+
+        public const ushort SERVER_START = 1200;
+        public const ushort SERVER_START_SUCCESS = 1202;
+        public const ushort SERVER_START_FAIL = 1205;
+        public const ushort SERVER_RESTART = 1240;
+        public const ushort SERVER_RESTART_SUCCESS = 1242;
+        public const ushort SERVER_RESTART_FAIL = 1245;
+        public const ushort SERVER_STOP = 1270;
+        public const ushort SERVER_STOP_SUCCESS = 1272;
+        public const ushort SERVER_STOP_FAIL = 1275;
+
+        public const ushort SERVER_INFO = 1300;
+        public const ushort SERVER_INFO_SUCCESS = 1302;
+        public const ushort SERVER_INFO_FAIL = 1305;
+
+        public const ushort RANKINGS = 1400;
+        public const ushort RANKINGS_SUCCESS = 1402;
+        public const ushort RANKINGS_FAIL = 1405;
     }
 }

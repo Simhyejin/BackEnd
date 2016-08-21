@@ -298,7 +298,7 @@ namespace BackEnd
                             }
                             packet.data = buffer;
                         }
-                        if(header.code!=1000||header.code!=10002)
+                        if(header.code!=1000 && header.code!=1002)
                             Console.WriteLine("[Server][Receive][{0}] FrontEnd({1})", header.code, socket.RemoteEndPoint.ToString());
                         return packet;
                     }
@@ -452,6 +452,32 @@ namespace BackEnd
                     Advertise(packet, socket);
                     break;
 
+                //SERVER_START = 1200;
+
+                //SERVER_START_SUCCESS = 1202;
+
+                //SERVER_START_FAIL = 1205;
+
+
+                //SERVER_RESTART = 1240;
+
+                //SERVER_RESTART_SUCCESS = 1242;
+
+                //SERVER_RESTART_FAIL = 1245;
+
+
+                //SERVER_STOP = 1270;
+
+                //SERVER_STOP_SUCCESS = 1272;
+
+                //SERVER_STOP_FAIL = 1275;
+
+                //SERVER_INFO = 1300;
+                //SERVER_INFO_SUCCESS = 1302;
+                //SERVER_INFO_FAIL = 1305;
+                
+                //RANKINGS = 1400;   
+                                                
                 default:
                     break;
 
@@ -551,7 +577,8 @@ namespace BackEnd
                 sendPacket.data = null;
 
                 Send(socket, sendPacket);
-                //redis.SetUserLogin
+                string feName = redis.GetFEName(socket.RemoteEndPoint.ToString());
+                redis.SetUserLogin(feName, packet.header.uid, false);
                 redis.DelUserNumIdCache(usr);
             }
             else
@@ -602,6 +629,7 @@ namespace BackEnd
         {
             Header header = packet.header;
             FBSigninRequest loginRequest = (FBSigninRequest)mc.ByteToStructure(packet.data, typeof(FBSigninRequest));
+            int id = mysql.GetUserID(new string(loginRequest.user).Split('\0')[0]);
 
             Packet sendPacket = new Packet();
             bool signin = mysql.Login(new string(loginRequest.user).Split('\0')[0], new string(loginRequest.password).Split('\0')[0]);
@@ -609,7 +637,7 @@ namespace BackEnd
 
             if (signin)
             {
-                int id = mysql.GetUserID(new string(loginRequest.user).Split('\0')[0]);
+                
                 
                 string[] list = (string[])redis.GetFEIpPortList();
 
@@ -643,7 +671,7 @@ namespace BackEnd
                     {
                         string newFE = feList[r.Next(0, feList.Length)];
                         string feName = redis.GetFEName(newFE);
-                        FEInfo feInfo = (FEInfo)redis.GetFEServiceInfo(feName);
+                        FrontEnd feInfo = (FrontEnd)redis.GetFEServiceInfo(feName);
                         string newIP = newFE.Split(':')[0];
                         int newPort = int.Parse(newFE.Split(':')[1]);
 
@@ -651,7 +679,7 @@ namespace BackEnd
                         sendPacket.data = mc.StructureToByte(initReq);
                         sendPacket.header.code = Command.CONNECTION_PASS;
                         sendPacket.header.size = (ushort)sendPacket.data.Length;
-                        sendPacket.header.uid = mysql.GetUserID(new string(loginRequest.user).Split('\0')[0]);
+                        sendPacket.header.uid = id;
 
                         Socket fesocket = feSocketList[newFE];
                         Send(fesocket, sendPacket);
@@ -661,7 +689,7 @@ namespace BackEnd
                         sendPacket.data = mc.StructureToByte(LoginResponse);
                         sendPacket.header.code = Command.SIGNIN_SUCCESS;
                         sendPacket.header.size = (ushort)sendPacket.data.Length;
-                        sendPacket.header.uid = header.uid;
+                        sendPacket.header.uid = id;
                         Send(socket, sendPacket);
                         Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
                     }
@@ -679,6 +707,7 @@ namespace BackEnd
                 else
                 {
                     sendPacket.header.code = Command.SIGNIN_FAIL;
+                    sendPacket.header.uid = header.uid;
                     sendPacket.header.size = 0;
                     sendPacket.data = null;
 
@@ -840,7 +869,7 @@ namespace BackEnd
                             redis.AddUserChatRoom(feName, joinReq.roomNum, username);
                             redis.IncChatRoomCount(feName, joinReq.roomNum);
 
-                            FEInfo info = (FEInfo)redis.GetFEServiceInfo(fe);
+                            FrontEnd newFE = (FrontEnd)redis.GetFEServiceInfo(fe);
 
                             string password = mysql.GetPasswordID(header.uid);
                             string cookie = MakeCookie(username, password);
@@ -851,10 +880,10 @@ namespace BackEnd
                             sendPacket.header.size = (ushort)sendPacket.data.Length;
                            
                             
-                            Send(feNameSocketList[info.Name], sendPacket);
-                            Console.WriteLine("[Server][Redirect] send to FE({0}) ", feNameSocketList[info.Name]);
+                            Send(feNameSocketList[newFE.Name], sendPacket);
+                            Console.WriteLine("[Server][Redirect] send to FE({0}) ", feNameSocketList[newFE.Name]);
 
-                            FBRoomJoinRedirectResponse joinRes = new FBRoomJoinRedirectResponse(info.Ip.ToCharArray(), info.Port, cookie.ToCharArray());
+                            FBRoomJoinRedirectResponse joinRes = new FBRoomJoinRedirectResponse(newFE.Ip.ToCharArray(), newFE.Port, cookie.ToCharArray());
                             sendPacket.data = mc.StructureToByte(joinRes);
                             sendPacket.header.code = Command.JOIN_REDIRECT;
                             sendPacket.header.uid = header.uid;

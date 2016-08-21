@@ -53,7 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BackEnd.cs" />
-    <Compile Include="FE.cs" />
+    <Compile Include="FrontEnd.cs" />
     <Compile Include="MConvertor.cs" />
     <Compile Include="MySQL.cs" />
     <Compile Include="Program.cs" />

@@ -48,11 +48,9 @@
     <Compile Include="MConvertor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Protocol\FBLoginResponse.cs" />
-    <Compile Include="Protocol\FBLoginRequest.cs" />
-    <Compile Include="Protocol\CFLoginRequest.cs" />
-    <Compile Include="Protocol\CFLoginResponse.cs" />
+    <Compile Include="Protocol\ClientToFrontEnd.cs" />
     <Compile Include="Protocol\Command.cs" />
+    <Compile Include="Protocol\FrontToBack.cs" />
     <Compile Include="Protocol\Protocol.cs" />
   </ItemGroup>
   <ItemGroup>

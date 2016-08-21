@@ -13,10 +13,12 @@ namespace BackEnd
             BackEnd be = new BackEnd(41469);
             be.Start();
 
-            while (true)
+            while (be.listening)
             {
-                ;
+                be.AcceptClient();
             }
+
+            Console.WriteLine("[Server]End");
         }
     }
 }

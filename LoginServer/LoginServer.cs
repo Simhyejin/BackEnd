@@ -6,7 +6,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 using static LoginServer.Protocol.Packet;
 
 namespace LoginServer
@@ -15,15 +17,18 @@ namespace LoginServer
     {
         private Socket listenSocket;
         private Socket socketBE;
+        private Dictionary<int, Socket> clientList;
+        private Dictionary<Socket, int> userList;
+        private Dictionary<Socket, int> heartBeatlist;
 
         private MConvert mc = new MConvert();
         private const int HEAD_SIZE = 4;
 
         private int backlog = 10;
-        private bool listening;
+        public bool listening;
         private int port;
-        
 
+        bool connected = false;
 
         Task<Socket> acceptTask = null;
 
@@ -32,19 +37,21 @@ namespace LoginServer
             
             this.port = port;
             listening = true;
+            clientList = new Dictionary<int, Socket>();
+            userList = new Dictionary<Socket, int>();
+            heartBeatlist = new Dictionary<Socket, int>();
         }
 
         public async void Start(IPAddress ip, int port)
         {
             await Task.WhenAll(BindListenerAsync(this.port), ConnectBEAsync(ip, port));
 
-            while (listening)
-            {
-                AcceptClient();
-            }
+            connected = true;
 
-            Console.ReadLine();
-            Console.WriteLine("[Server]End");
+            System.Timers.Timer timer = new System.Timers.Timer();
+            timer.Interval = 30 * 1000;
+            timer.Elapsed += new ElapsedEventHandler(SendHeartBeat);
+            timer.Start();
         }
 
         //bind& connect
@@ -70,12 +77,15 @@ namespace LoginServer
                     IPEndPoint remoteEP = new IPEndPoint(ip, port);
 
                     socketBE.Connect(remoteEP);
-
+                    Task<Socket> recieveTask = null;
+                    Receive(socketBE, recieveTask);
+                    heartBeatlist.Add(socketBE, 0);
                     Console.WriteLine("[Server][Connect] BE");
                 }
                 catch (Exception)
                 {
                     Console.WriteLine("[Server][Connect] BE fail");
+                    ConnectBEAsync(ip, port);
                 }
                 
             });
@@ -86,35 +96,53 @@ namespace LoginServer
 
         //Accept
         #region
-        private async void AcceptClient()
+        public async void AcceptClient()
         {
-            try
+            if (connected)
             {
-                if (acceptTask != null)
+                try
                 {
-                    if (acceptTask.IsCompleted)
+                    if (acceptTask != null)
                     {
-                        Socket client = await AcceptAsync();
-                        Console.WriteLine("[Server][Accept]  Client({0}) is Connected.", client.RemoteEndPoint.ToString());
-                        Receive(client);
+                        Task<Socket> recieveTask = null;
+                        if (acceptTask.IsCompleted)
+                        {
+                            Socket client = await AcceptAsync();
+                            int n = UserIDGenerator.GenerateRoomNo();
+                            clientList.Add(n, client);
+                            userList.Add(client, n);
+                            Console.WriteLine("[Server][Accept]  Client({0}) is Connected.", client.RemoteEndPoint.ToString());
+                            Receive(client, recieveTask);
+                            heartBeatlist.Add(client, 0);
+                            
+                        }
                     }
+                    else
+                    {
+                        Task<Socket> recieveTask = null;
+                        Socket client = await AcceptAsync();
+                        int n = UserIDGenerator.GenerateRoomNo();
+                        clientList.Add(n, client);
+                        userList.Add(client, n);
+
+                        Console.WriteLine("[Server][Accept]  Client({0}) is Connected.", client.RemoteEndPoint.ToString());
+                        Receive(client, recieveTask);
+
+                        heartBeatlist.Add(client, 0);
+
+                    }
+
                 }
-                else
+                catch (SocketException)
                 {
-                    Socket client = await AcceptAsync();
-                    Console.WriteLine("[Server][Accept]  Client({0}) is Connected.", client.RemoteEndPoint.ToString());
-                    Receive(client);
+                    Console.WriteLine("[Server][Accept]  Fail.");
                 }
-                
+                catch (Exception)
+                {
+                    Console.WriteLine("[Server][Accept]  Fail.");
+                }
             }
-            catch (SocketException)
-            {
-                Console.WriteLine("[Server][Accept]  Fail.");
-            }
-            catch (Exception)
-            {
-                Console.WriteLine("[Server][Accept]  Fail.");
-            }
+           
 
         }
 
@@ -141,21 +169,43 @@ namespace LoginServer
 
         //Receive
         #region
-        private async void Receive(Socket socket)
+        private async void Receive(Socket socket, Task receiveTask)
         {
+
             try
             {
+
                 while (socket != null && socket.Connected)
                 {
-                    Packet? packet = await Task.Run<Packet?>(() => ReceiveAsync(socket));
 
-                    if (packet == null)
+                    if (receiveTask != null)
                     {
-                        throw new SocketException();
+                        if (receiveTask.IsCompleted)
+                        {
+                            Packet? packet = await Task.Run<Packet?>(() => ReceiveAsync(socket));
+
+                            if (packet == null)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                ProcessRequest((Packet)packet, socket);
+                            }
+                        }
                     }
                     else
                     {
-                        ProcessRequest((Packet)packet, socket);
+                        Packet? packet = await Task.Run<Packet?>(() => ReceiveAsync(socket));
+
+                        if (packet == null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            ProcessRequest((Packet)packet, socket);
+                        }
                     }
                 }
 
@@ -175,21 +225,29 @@ namespace LoginServer
 
         public Packet? ReceiveAsync(Socket socket)
         {
+            if(socket == socketBE)
+                Console.WriteLine("Receiving from BE({0})...", socket.RemoteEndPoint.ToString());
+            else
+                Console.WriteLine("Receiving from Client({0})...", socket.RemoteEndPoint.ToString());
             Packet packet = new Packet();
 
-            if (socket != null)
+            if (socket != null && socket.Connected)
             {
                 try
                 {
-                    byte[] buffer = new byte[4];
+                    byte[] buffer = new byte[12];
+                    //socket.ReceiveTimeout = 30 * 1000;
                     int readBytes = socket.Receive(buffer);
+                    heartBeatlist[socket] = 0;
 
                     if (0 == readBytes)
                     {
                         CloseSocket(socket);
+                        return null;
                     }
 
-                    Header header = (Header)mc.ByteToStructure(buffer, typeof(Header));
+                    
+                    Header header = mc.BytesToHeader(buffer);
                     packet.data = null;
 
                     packet.header = header;
@@ -202,18 +260,43 @@ namespace LoginServer
                         if (0 == readBytes)
                         {
                             CloseSocket(socket);
+                            return null;
                         }
                         packet.data = buffer;
                     }
-                    Console.WriteLine("[Server][Receive] Client({0})", socket.RemoteEndPoint.ToString());
+
+                    if (socket == socketBE)
+                         if (header.code != 1000 || header.code != 10002)
+                            Console.WriteLine("[Server][Receive][{0}] BE({1})", header.code, socket.RemoteEndPoint.ToString());
+                    else
+                         if (header.code != 1000 || header.code != 10002)
+                            Console.WriteLine("[Server][Receive][{0}] Client({1})", header.code, socket.RemoteEndPoint.ToString());
+
                     return packet;
                 }
-                catch (SocketException)
+                catch (SocketException e)
                 {
-                    return null;
+                    if (!socket.Connected)
+                        return null;
+                    if (e.ErrorCode == 10060)
+                    {
+
+                        if (++heartBeatlist[socket] > 3)
+                        {
+                            CloseSocket(socket);
+                            return null;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("[ReceiveAsync] " + e.ToString());
+                        return null;
+                    }
+                        
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
+                    Console.WriteLine("[ReceiveAsync] " + e.ToString());
                     return null;
                 }
             }
@@ -224,32 +307,26 @@ namespace LoginServer
 
         //Send
         #region
-        private async void Send(Socket socket, Packet packet)
+        private void Send(Socket socket, Packet packet)
         {
-            await Task.Run(() => SendAsync(socket, packet));
-        }
-
-        public void SendAsync(Socket socket, Packet packet)
-        {
+            
             try
-            {
-                int lenght = HEAD_SIZE + packet.header.size;
-
-                byte[] bytes = new byte[lenght];
-
-                Array.Copy(mc.StructureToByte(packet.header), bytes, HEAD_SIZE);
-                Array.Copy(packet.data, 0, bytes, HEAD_SIZE, packet.header.size);
-
+            {   
+                byte[] bytes = mc.PacketToBytes(packet);
                 int sendBytes = socket.Send(bytes);
 
+                if (socket == socketBE)
+                    Console.WriteLine("[Server][Send][{0}] BE({1}) ", packet.header.code, socket.RemoteEndPoint.ToString());
+                else
+                    Console.WriteLine("[Server][Send][{0}] Client({1}) ", packet.header.code, socket.RemoteEndPoint.ToString());
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
-                Console.WriteLine("[Server][Send] Client({0}) error", socket.RemoteEndPoint.ToString());
+                Console.WriteLine("[Server][Send] Client({0}) error {1}", socket.RemoteEndPoint.ToString(), e.ToString());
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Console.WriteLine("[Server][Send] Client({0}) error", socket.RemoteEndPoint.ToString());
+                Console.WriteLine("[Server][Send] Client({0}) error {2}", socket.RemoteEndPoint.ToString(), e.ToString());
             }
         }
         #endregion
@@ -266,8 +343,15 @@ namespace LoginServer
                 case Command.SIGNUP:
                 case Command.SIGNUP_FAIL:
                 case Command.SIGNUP_SUCCESS:
+                    SignUp(packet, socket);
                     break;
+
+                case Command.HEARTBEAT_SUCCESS:
+                    ReceiveHeartBeat(packet, socket);
+                    break;
+
                 default:
+                    Console.WriteLine("{0} doesn't handled Command", packet.header.code);
                     break;
             }
         }
@@ -280,61 +364,141 @@ namespace LoginServer
 
             if (command == Command.SIGNIN)
             {
-                Console.WriteLine("[Server][SignIn] Client({0} Request) ", socket.RemoteEndPoint.ToString());
-                CFLoginRequest cfLoginRequest = (CFLoginRequest)mc.ByteToStructure(packet.data, typeof(CFLoginRequest));
 
-                char[] id = cfLoginRequest.id;
+                Console.WriteLine("[Server][SignIn] Client({0}) Request ", socket.RemoteEndPoint.ToString());
+                CFSigninRequest cfLoginRequest = (CFSigninRequest)mc.ByteToStructure(packet.data, typeof(CFSigninRequest));
+
+                char[] id = cfLoginRequest.user;
                 char[] pw = cfLoginRequest.password;
-                //string cookie = MakeCookie(id, pw);
 
-                FBLoginRequest fbLoginRequest = new FBLoginRequest(id, pw);
+                FBSigninRequest fbLoginRequest = new FBSigninRequest(id, pw);
 
                 Packet sendPacket = new Packet();
 
                 sendPacket.data = mc.StructureToByte(fbLoginRequest);
                 sendPacket.header.code = command;
                 sendPacket.header.size = (ushort)sendPacket.data.Length;
+                sendPacket.header.uid = userList[socket];
 
                 Send(socketBE, sendPacket);
 
-                CFLoginResponse cfLoginResponse = new CFLoginResponse("10.100.58.4", 41469, "1234124");
-                sendPacket.data = mc.StructureToByte(cfLoginResponse);
-                sendPacket.header.code = Command.SIGNIN_SUCCESS;
-                sendPacket.header.size = (ushort)sendPacket.data.Length;
 
-                Send(socket, sendPacket);
-                Console.WriteLine("[Server][SignIn] Success({0}) Response", socket.RemoteEndPoint.ToString());
+                Console.WriteLine("[Server][SignIn] Request to BE : Sign in");
 
 
             }
             else if (command == Command.SIGNIN_FAIL)
             {
                 Console.WriteLine("[Server][SignIn] BE({0}) Response", socket.RemoteEndPoint.ToString());
+               
+                Send(clientList[(int)packet.header.uid], packet);
+
+                Console.WriteLine("[Server][SignIn] Request to client : Sign in");
             }
             else if (command == Command.SIGNIN_SUCCESS)
             {
+                Console.WriteLine("[Server][SignIn] BE({0}) Response ", socket.RemoteEndPoint.ToString());
 
-            }
-            else if (command == Command.DUMMY_SIGNIN)
-            {
-            }
-            else if (command == Command.DUMMY_SIGNIN_FAIL)
-            {
-            }
-            else if (command == Command.DUMMY_SIGNIN_SUCCESS)
-            {
-            }
+                Send(clientList[(int)packet.header.uid], packet);
 
-
+                Console.WriteLine("[Server][SignIn] Response to Client : Sign in");
+            }
+           
         }
+        public void SignUp(Packet packet, Socket socket)
+        {
+            ushort command = packet.header.code;
+            if (command == Command.SIGNUP)
+            {
+                packet.header.uid = userList[socket];
+                Console.WriteLine("[Server][SignUp] Client({0}) Request ", socket.RemoteEndPoint.ToString());
+
+                Send(socketBE, packet);
+                Console.WriteLine("[Server][SignUp] Request to BE : Sign in");
+            }
+            else if (command == Command.SIGNUP_FAIL)
+            {
+                
+                Console.WriteLine("[Server][SignUp] BE({0}) Response", socket.RemoteEndPoint.ToString());
+                Send(clientList[(int)packet.header.uid], packet);
+
+                Console.WriteLine("[Server][SignUp] Request to client : Sign in");
+            }
+            else if (command == Command.SIGNUP_SUCCESS)
+            {
+                Console.WriteLine("[Server][SignUp] BE({0}) Response ", socket.RemoteEndPoint.ToString());
+
+                Send(clientList[(int)packet.header.uid], packet);
+
+                Console.WriteLine("[Server][SignUp] Response to Client : Sign in");
+            }
+        }
+        
 
         private void CloseSocket(Socket socket)
         {
+            if (socket == socketBE)
+                Console.WriteLine("[Server][Close] BE({0}) ", socket.RemoteEndPoint.ToString());
+            else
+            {
+                clientList.Remove(userList[socket]);
+                Console.WriteLine("[Server][Close] Client({0}) ", socket.RemoteEndPoint.ToString());
+                userList.Remove(socket);
+            }
+                
+
+            heartBeatlist.Remove(socket);
+
             socket.Close();
-            Console.WriteLine("[Server][Close] Client({0}) ", socket.RemoteEndPoint.ToString());
         }
 
+        private void SendHeartBeat(object sender, ElapsedEventArgs e)
+        {
 
+            Packet packet = new Packet();
+            packet.header.code = Command.HEARTBEAT;
+            packet.header.uid = 0;
+            packet.header.size = 0;
+            packet.data = null;
+
+            Send(socketBE, packet);
+            //Console.WriteLine("[Server][Send]Heartbeat to BE({0})", socketBE.RemoteEndPoint.ToString());
+            foreach (Socket socket in clientList.Values)
+            {
+                packet = new Packet();
+                packet.header.code = Command.HEARTBEAT;
+                packet.header.uid = userList[socket];
+                packet.header.size = 0;
+                packet.data = null;
+
+                Send(socket, packet);
+                //Console.WriteLine("[Server][Send]Heartbeat to FE({0})", socket.RemoteEndPoint.ToString());
+            }
+            
+        }
+
+        private void ReceiveHeartBeat(Packet packet, Socket socket)
+        {
+            //Console.WriteLine("[Server][Receive]Heartbeat from FE({0})", socket.RemoteEndPoint.ToString());
+            heartBeatlist[socket] = 0;
+            Packet sendPacket = new Packet();
+            sendPacket.data = null;
+            sendPacket.header.uid = 0;
+            sendPacket.header.code = Command.HEARTBEAT_SUCCESS;
+            sendPacket.header.size = 0;
+            Send(socket, sendPacket);
+        }
+
+    }
+
+    public static class UserIDGenerator
+    {
+        public static int userID = 0;
+        public static int GenerateRoomNo()
+        {
+            Interlocked.Increment(ref userID);
+            return userID;
+        }
     }
 
 }

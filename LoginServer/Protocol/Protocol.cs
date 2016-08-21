@@ -6,19 +6,17 @@ using System.Threading.Tasks;
 
 namespace LoginServer.Protocol
 {
+    public struct Header
+    {
+        public long uid;
+        public ushort code;
+        public ushort size;
+
+
+    }
+
     public struct Packet
     {
-        public struct Header
-        {
-            public ushort code;
-            public ushort size;
-            public Header(ushort code, ushort size)
-            {
-                this.code = code;
-                this.size = size;
-            }
-        }
-
         public Header header;
         public byte[] data;
 

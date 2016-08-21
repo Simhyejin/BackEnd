@@ -14,7 +14,14 @@ namespace LoginServer
             LoginServer server = new LoginServer(11000);
             IPAddress ipBE = IPAddress.Parse("10.100.58.4");
             server.Start(ipBE, 41469);
-            while (true) ;
+
+            while (server.listening)
+            {
+                server.AcceptClient();
+            }
+
+           
+            Console.WriteLine("[Server]End");
         }
     }
 }

@@ -76,16 +76,16 @@ namespace BackEnd
         /// Sign Up
         /// Insert user into Users table
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="user"></param>
         /// <param name="password"></param>
         /// <param name="isDummy"></param>
-        public bool InsertUser(string id, string password, bool isDummy)
+        public bool InsertUser(string user, string password, bool isDummy)
         {
             try
             {
                 StringBuilder insertQuery = new StringBuilder();
                 insertQuery.Append("INSERT INTO Users (USER_NAME, PASSWORD, DUMMY, CREATE_TIME) VALUES (");
-                insertQuery.Append("'" + id + "', ");
+                insertQuery.Append("'" + user + "', ");
                 insertQuery.Append("'" + password + "', ");
                 insertQuery.Append(isDummy + ", ");
                 insertQuery.Append("now())");
@@ -93,12 +93,14 @@ namespace BackEnd
                 MySqlCommand command = new MySqlCommand(insertQuery.ToString(), conn);
                 command.ExecuteNonQuery();
 
-                Console.WriteLine("[ MYSQL ][ Insert ] User({0}) Success", id);
+                Console.WriteLine("[ MYSQL ][ Insert ] User({0}) Success", user);
                 return true;
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Console.WriteLine("[ MYSQL ][ Insert ] User({0}) FAIL", id);
+                Console.WriteLine("[ MYSQL ][ Insert ] User({0}) FAIL", user);
+
+                Console.WriteLine(e.ToString());
                 return false;
             }
             
@@ -108,26 +110,28 @@ namespace BackEnd
         /// Sign Out
         /// Delete User from Users table
         /// </summary>
-        /// <param name="id"></param>
-        public bool DeleteUser(string id)
+        /// <param name="user"></param>
+        public bool DeleteUser(string user)
         {
             try
             {
                 StringBuilder deleteQuery = new StringBuilder();
                 deleteQuery.Append("DELETE FROM Users ");
                 deleteQuery.Append("WHERE USER_NAME = ");
-                deleteQuery.Append("'" + id + "'");
+                deleteQuery.Append("'" + user + "'");
 
                 MySqlCommand command = new MySqlCommand(deleteQuery.ToString(), conn);
                 command.ExecuteNonQuery();
 
-                Console.WriteLine("[ MYSQL ][ Delete ] User({0}) Success", id);
+                Console.WriteLine("[ MYSQL ][ Delete ] User({0}) Success", user);
 
                 return true;
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Console.WriteLine("[ MYSQL ][ Delete ] User({0}) FAIL", id);
+                Console.WriteLine("[ MYSQL ][ Delete ] User({0}) FAIL", user);
+
+                Console.WriteLine(e.ToString());
                 return false;
             }
         }
@@ -135,41 +139,45 @@ namespace BackEnd
         /// <summary>
         /// check id wherer if it can be used
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="usr"></param>
         /// <returns></returns>
-        public bool CheckDupID(string id)
+        public bool CheckDupID(string usr)
         {
             try
             {
                 StringBuilder selectQuery = new StringBuilder();
                 selectQuery.Append("SELECT count(*) FROM Users ");
                 selectQuery.Append("WHERE USER_NAME = ");
-                selectQuery.Append("'" + id + "'");
+                selectQuery.Append("'" + usr + "'");
 
                 MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
-                int queryResult = (int)command.ExecuteScalar();
+                int queryResult = int.Parse(command.ExecuteScalar().ToString());
 
-                Console.WriteLine("[ MYSQL ][ SELECT ] User({0}) Success for dup id", id);
+                Console.WriteLine("[ MYSQL ][ SELECT ] User({0}) Success for dup id", usr);
 
                 if (queryResult == 0)
                 {
-                    Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) is not used", id);
+                    Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) is not used", usr);
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) is already used", id);
+                    Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) is already used", usr);
                     return false;
                 }
             }
-            catch (MySqlException)
+            catch (MySqlException e)
             {
-                Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) MYSQLEXCEPTION", id);
+                Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) MYSQLEXCEPTION", usr);
+
+                Console.WriteLine(e.ToString());
                 return false;
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) UNHANDLED EXCEPTION", id);
+                Console.WriteLine("[ MYSQL ][ DUPID ] User({0}) UNHANDLED EXCEPTION", usr);
+
+                Console.WriteLine(e.ToString());
                 return false;
             }
         }
@@ -177,45 +185,49 @@ namespace BackEnd
         /// <summary>
         /// Check id, password in Users table 
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="user"></param>
         /// <param name="password"></param>
         /// <returns></returns>
-        public bool Login(string id, string password)
+        public bool Login(string user, string password)
         {
             try
             {
                 StringBuilder selectQuery = new StringBuilder();
                 selectQuery.Append("SELECT count(*) FROM Users ");
                 selectQuery.Append("WHERE USER_NAME = ");
-                selectQuery.Append("'" + id + "'");
+                selectQuery.Append("'" + user + "'");
                 selectQuery.Append("AND PASSWORD = ");
                 selectQuery.Append("'" + password + "'");
 
 
                 MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
-                int queryResult = (int)command.ExecuteScalar();
+                int queryResult = int.Parse(command.ExecuteScalar().ToString());
 
-                Console.WriteLine("[ MYSQL ][ SELECT ] User({0}) Success for Login", id);
+                Console.WriteLine("[ MYSQL ][ SELECT ] User({0}) Success for Login", user);
 
                 if (queryResult == 1)
                 {
-                    Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) Success", id);
+                    Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) Success", user);
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) Fail", id);
+                    Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) Fail", user);
                     return false;
                 }
             }
-            catch (MySqlException)
+            catch (MySqlException e)
             {
-                Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) MYSQLEXCEPTION", id);
+                
+                Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) MYSQLEXCEPTION", user);
+                Console.WriteLine(e.ToString());
                 return false;
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) UNHANDLED EXCEPTION", id);
+                Console.WriteLine("[ MYSQL ][ LOGIN ] User({0}) UNHANDLED EXCEPTION", user);
+
+                Console.WriteLine(e.ToString());
                 return false;
             }
         }
@@ -223,24 +235,24 @@ namespace BackEnd
         /// <summary>
         /// Update Password from Users table 
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="user"></param>
         /// <param name="oldPassword"></param>
         /// <param name="newPassword"></param>
         /// <returns></returns>
-        public bool UpdatePassword(string id, string oldPassword, string newPassword) 
+        public bool UpdatePassword(string user, string oldPassword, string newPassword) 
         {
             try
             {
                 StringBuilder selectQuery = new StringBuilder();
                 selectQuery.Append("SELECT PASSWORD FROM Users ");
                 selectQuery.Append("WHERE USER_NAME = ");
-                selectQuery.Append("'" + id + "'");
+                selectQuery.Append("'" + user + "'");
                 
                 MySqlCommand command  = new MySqlCommand(selectQuery.ToString(), conn);
-                string queryResult = (string)command.ExecuteScalar();
+                string queryResult = command.ExecuteScalar().ToString();
 
                 Console.WriteLine(queryResult);
-                Console.WriteLine("[ MYSQL ][ SELECT ] User({0}) Password Success", id);
+                Console.WriteLine("[ MYSQL ][ SELECT ] User({0}) Password Success", user);
 
 
                 if (oldPassword == queryResult)
@@ -248,17 +260,17 @@ namespace BackEnd
                     StringBuilder updateQuery = new StringBuilder();
                     updateQuery.Append("UPDATE Users SET PASSWORD = ");
                     updateQuery.Append("'" + newPassword + "' ");
-                    updateQuery.Append("WHERE USER_NAME = '"+id+"'");
+                    updateQuery.Append("WHERE USER_NAME = '"+user+"'");
 
                     command = new MySqlCommand(updateQuery.ToString(), conn);
                     command.ExecuteNonQuery();
 
-                    Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) Password Success", id);
+                    Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) Password Success", user);
 
                 }
                 else
                 {
-                    Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) Wrong Password", id);
+                    Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) Wrong Password", user);
 
                 }
 
@@ -267,10 +279,85 @@ namespace BackEnd
             catch (Exception e)
             {
                 Console.WriteLine(e.ToString());
-                Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) FAIL", id);
+                Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) FAIL", user);
                 return false;
             }
         }
-        
+        public bool UpdatePassword(string user, string newPassword)
+        {
+            try
+            {
+               
+                StringBuilder updateQuery = new StringBuilder();
+                updateQuery.Append("UPDATE Users SET PASSWORD = ");
+                updateQuery.Append("'" + newPassword + "' ");
+                updateQuery.Append("WHERE USER_NAME = '" + user + "'");
+
+                MySqlCommand command = new MySqlCommand(updateQuery.ToString(), conn);
+                command.ExecuteNonQuery();
+
+                Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) Password Success", user);
+
+               
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                Console.WriteLine("[ MYSQL ][ UPDATE ] User({0}) FAIL", user);
+                return false;
+            }
+        }
+
+        public int GetUserID(string user)
+
+        {
+            StringBuilder selectQuery = new StringBuilder();
+            selectQuery.Append("SELECT USER_ID FROM Users ");
+            selectQuery.Append("WHERE USER_NAME = ");
+            selectQuery.Append("'" + user + "'");
+
+            MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
+
+            return int.Parse(command.ExecuteScalar().ToString());
+
+        }
+
+        public string GetUserNamebyID(long id)
+        {
+            StringBuilder selectQuery = new StringBuilder();
+            selectQuery.Append("SELECT USER_NAME FROM Users ");
+            selectQuery.Append("WHERE USER_ID = ");
+            selectQuery.Append("'" + id + "'");
+
+            MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
+            return command.ExecuteScalar().ToString();
+
+        }
+
+        public string GetPasswordID(long id)
+        {
+            StringBuilder selectQuery = new StringBuilder();
+            selectQuery.Append("SELECT PASSWORD FROM Users ");
+            selectQuery.Append("WHERE USER_ID = ");
+            selectQuery.Append("'" + id + "'");
+
+            MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
+            return command.ExecuteScalar().ToString();
+
+        }
+
+        public bool GetUserTypebyID(long id)
+        {
+            StringBuilder selectQuery = new StringBuilder();
+            selectQuery.Append("SELECT DUMMY FROM Users ");
+            selectQuery.Append("WHERE USER_ID = ");
+            selectQuery.Append("'" + id + "'");
+
+            MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
+            return (bool)command.ExecuteScalar();
+        }
+
     }
 }

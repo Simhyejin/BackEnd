@@ -58,9 +58,6 @@ namespace BackEnd
             }
         }
 
-
-        public void Start() { }
-
         public ConnectionMultiplexer Redis
         {
             get { return this.redisdb; }
@@ -83,34 +80,6 @@ namespace BackEnd
             }
         }
 
-        
-        public FrontEnd GetFEInfo(string feName)
-        {
-            // key : 
-            HashEntry[] feInfo = db.HashGetAll(feName);
-
-            FrontEnd fe = new FrontEnd();
-            for (int idx = 0; idx < feInfo.Length; idx++)
-            {
-                // name
-                if (feInfo[idx].Name.Equals("name"))
-                {
-                    fe.Name = feInfo[idx].Value;
-                }
-                else if (feInfo[idx].Name.Equals("ip"))
-                {
-                    // ip 
-                    fe.Ip = feInfo[idx].Value;
-                }
-                else
-                {
-                    //prot
-                    fe.Port = Int32.Parse(feInfo[idx].Value);
-                }
-
-            }
-            return fe;
-        }
 
         public string AddFEConnectedInfo(string ip, int port)
         {
@@ -227,13 +196,6 @@ namespace BackEnd
             return feName;
         }
 
-        public int GetFETotalChatRoomCount(string feName)
-        {
-            string key = feName + DELIMITER + ChattingRoomList;
-            int roomCount = (int)db.SetLength(key);
-            return roomCount;
-        }
-
         
         public bool SetUserLogin(string remoteName, long userNumId, bool state)
         {
@@ -304,8 +266,6 @@ namespace BackEnd
 
             Console.WriteLine("Generated room number : " + roomNo);
 
-           
-
             sb.Append(feName);
             sb.Append(DELIMITER);
             sb.Append(ChattingRoomList);
@@ -333,14 +293,6 @@ namespace BackEnd
             return db.SetRemove(key, id);
         }
 
-        public bool DelUserChatRoomKey(string feName, int roomNo)
-        {
-            string key = feName + DELIMITER + Room + roomNo + DELIMITER + User;
-            return db.KeyDelete(key);
-        }
-
-
-
       
         public int DecChatRoomCount(string feName, int roomNo)
         {
@@ -367,12 +319,7 @@ namespace BackEnd
 
             return (int)db.StringGet(key);
         }
-
-        public bool DelChattingRoomCountKey(string feName, int roomNo)
-        {
-            string key = feName + DELIMITER + Room + roomNo + DELIMITER + Count;
-            return db.KeyDelete(key);
-        }
+        
 
         public bool DelFEChattingRoomListKey(string feName)
         {
@@ -427,7 +374,7 @@ namespace BackEnd
         public object GetChattingRanking(int range)
         {
             
-            RedisValue[] ranks = db.SortedSetRangeByRank(Ranking_Chatting, 0, range, Order.Descending);
+            SortedSetEntry[] ranks = db.SortedSetRangeByRankWithScores(Ranking_Chatting, 0, range, Order.Descending);
             return ranks;
         }
 

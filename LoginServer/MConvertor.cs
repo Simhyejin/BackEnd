@@ -109,6 +109,63 @@ namespace LoginServer
         {
             return Encoding.UTF8.GetBytes(str);
         }
+
+
+        public enum KeyType
+        {
+            Success,
+            GoBack,
+            LogOut,
+            Exit,
+            Delete
+
+        };
+
+        public KeyType TryReadLine(out string result)
+        {
+            var buf = new StringBuilder();
+            for (;;)
+            {
+                //exit
+                var key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.Escape)
+                {
+                    result = "";
+                    return KeyType.Exit;
+                }
+                //go to back
+                else if (key.Key == ConsoleKey.F1)
+                {
+                    result = "";
+                    return KeyType.GoBack;
+                }
+                else if (key.Key == ConsoleKey.F2)
+                {
+                    result = "";
+                    return KeyType.LogOut;
+                }
+                else if (key.Key == ConsoleKey.F3)
+                {
+                    result = "";
+                    return KeyType.Delete;
+                }
+                else if (key.Key == ConsoleKey.Enter)
+                {
+                    result = buf.ToString();
+                    return KeyType.Success;
+                }
+                else if (key.Key == ConsoleKey.Backspace && buf.Length > 0)
+                {
+                    buf.Remove(buf.Length - 1, 1);
+                    Console.Write("\b \b");
+                }
+                else if (key.KeyChar != 0)
+                {
+                    buf.Append(key.KeyChar);
+                    Console.Write(key.KeyChar);
+                }
+            }
+        }
     }
 
 }

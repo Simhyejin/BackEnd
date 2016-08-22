@@ -16,9 +16,11 @@ namespace BackEnd
             while (be.listening)
             {
                 be.AcceptClient();
+                be.AcceptAgent();
             }
 
             Console.WriteLine("[Server]End");
+            Console.ReadKey();
         }
     }
 }

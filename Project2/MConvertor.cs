@@ -1,4 +1,5 @@
 ﻿using BackEnd.Protocol;
+using Project2.Protocol;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -84,6 +85,45 @@ namespace BackEnd
             return data;
         }
 
+        public byte[] StructureArrayToByte(object obj, Type type)
+
+        {
+
+            UserHandle[] list = (UserHandle[])obj;
+
+            byte[] resultArr = new byte[Marshal.SizeOf(type) * list.Length];
+
+            int idx = 0;
+
+
+            foreach (UserHandle userrank in list)
+
+            {
+                int datasize = Marshal.SizeOf(userrank);//((PACKET_DATA)obj).TotalBytes; // 구조체에 할당된 메모리의 크기를 구한다.
+
+                IntPtr buff = Marshal.AllocHGlobal(datasize); // 비관리 메모리 영역에 구조체 크기만큼의 메모리를 할당한다.
+
+                Marshal.StructureToPtr(userrank, buff, false); // 할당된 구조체 객체의 주소를 구한다.
+
+                byte[] data = new byte[datasize]; // 구조체가 복사될 배열
+
+                Marshal.Copy(buff, data, 0, datasize); // 구조체 객체를 배열에 복사
+
+                Marshal.FreeHGlobal(buff); // 비관리 메모리 영역에 할당했던 메모리를 해제함
+
+
+                Array.Copy(data, 0, resultArr, idx * (datasize), data.Length);
+
+                idx++;
+
+            }
+
+            return resultArr; // 배열을 리턴
+
+        }
+
+
+
         public List<int> BytesToList(byte[] body)
         {
             List<int> list = new List<int>();
@@ -107,6 +147,63 @@ namespace BackEnd
         {
             return Encoding.UTF8.GetBytes(str);
         }
+
+        public enum KeyType
+        {
+            Success,
+            GoBack,
+            LogOut,
+            Exit,
+            Delete
+
+        };
+
+        public KeyType TryReadLine(out string result)
+        {
+            var buf = new StringBuilder();
+            for (;;)
+            {
+                //exit
+                var key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.Escape)
+                {
+                    result = "";
+                    return KeyType.Exit;
+                }
+                //go to back
+                else if (key.Key == ConsoleKey.F1)
+                {
+                    result = "";
+                    return KeyType.GoBack;
+                }
+                else if (key.Key == ConsoleKey.F2)
+                {
+                    result = "";
+                    return KeyType.LogOut;
+                }
+                else if (key.Key == ConsoleKey.F3)
+                {
+                    result = "";
+                    return KeyType.Delete;
+                }
+                else if (key.Key == ConsoleKey.Enter)
+                {
+                    result = buf.ToString();
+                    return KeyType.Success;
+                }
+                else if (key.Key == ConsoleKey.Backspace && buf.Length > 0)
+                {
+                    buf.Remove(buf.Length - 1, 1);
+                    Console.Write("\b \b");
+                }
+                else if (key.KeyChar != 0)
+                {
+                    buf.Append(key.KeyChar);
+                    Console.Write(key.KeyChar);
+                }
+            }
+        }
+
     }
 
 }

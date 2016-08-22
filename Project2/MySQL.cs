@@ -319,8 +319,11 @@ namespace BackEnd
             selectQuery.Append("'" + user + "'");
 
             MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
-
-            return int.Parse(command.ExecuteScalar().ToString());
+            if (command.ExecuteScalar() == null)
+                return 0;
+            else
+                return int.Parse(command.ExecuteScalar().ToString());
+            
 
         }
 

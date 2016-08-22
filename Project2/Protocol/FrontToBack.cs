@@ -7,6 +7,13 @@ using System.Threading.Tasks;
 
 namespace Project2.Protocol
 {
+    struct FBDummySignupRequest
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
+        public char[] user;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 18)]
+        public char[] password;
+    }
     struct FBSignupRequest
     {
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
@@ -29,6 +36,10 @@ namespace Project2.Protocol
 
     struct FBDummySigninRequest
     {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
+        public char[] user;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 18)]
+        public char[] password;
     }
 
     struct FBSigninRequest
@@ -108,7 +119,7 @@ namespace Project2.Protocol
     struct FBConnectionPassRequest
     {
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-        char[] cookie;
+        public char[] cookie;
         public FBConnectionPassRequest(string cookie)
         {
             this.cookie = new char[64];
@@ -214,5 +225,20 @@ namespace Project2.Protocol
     public struct FBRoomDestroyRequest
     {
         public int roomNum;
+    }
+
+    public struct UserHandle
+    {
+        public int Rank;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
+        public char[] ID;
+        public int MSGCOUNT;
+        public UserHandle(int r, char[] i, int mc)
+        {
+            Rank = r;
+            ID = new char[12];
+            Array.Copy(i, ID, i.Length);
+            MSGCOUNT = mc;
+        }
     }
 }

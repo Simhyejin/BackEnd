@@ -22,6 +22,7 @@ namespace LoginServer
 
            
             Console.WriteLine("[Server]End");
+            Console.ReadKey();
         }
     }
 }

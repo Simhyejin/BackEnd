@@ -10,12 +10,15 @@ using static BackEnd.Protocol.Packet;
 using Project2.Protocol;
 using System.Linq;
 using System.Threading;
+using StackExchange.Redis;
+using static BackEnd.MConvert;
 
 namespace BackEnd
 {
     class BackEnd
     {
         private Socket listenSocket;
+        private Socket listenSocketforAgent;
         private Dictionary<string, Socket> feSocketList;
         private Dictionary<string, Socket> feNameSocketList;
         private Dictionary<Socket, int> heartBeatList;
@@ -31,8 +34,9 @@ namespace BackEnd
         private RedisController redis;
         bool dbConnected = false;
 
-
+        Task<bool> inputTask = null;
         Task<Socket> acceptTask = null;
+        Task<Socket> acceptAgentTask = null;
 
         public BackEnd(int port)
         {
@@ -44,14 +48,54 @@ namespace BackEnd
             heartBeatList = new Dictionary<Socket, int>();
 
             mysql = new MySQL();
-            
-
         }
 
         public async void Start()
         {
-            await Task.WhenAll(BindListenerAsync(port), ConnectMySQLAsync(), ConnectRedisAsync());
+            InputUser();
+             await Task.WhenAll(BindListenerAsync(port), ConnectMySQLAsync(), ConnectRedisAsync());
             dbConnected = true;
+        }
+
+        public async void InputUser()
+        { 
+            if (inputTask != null)
+            {
+                if (inputTask.IsCompleted)
+                {
+                    listening = await inputAsync();    
+                }
+            }
+            else
+            {
+                listening = await inputAsync();  
+            }
+            
+        }
+
+        private Task<bool> inputAsync()
+        {
+
+            inputTask = Task.Run<bool>(() =>
+            {
+                string input = null;
+                KeyType result = mc.TryReadLine(out input);
+
+                if (result == KeyType.Exit)
+                {
+                    return false;
+                }
+                else if (result == KeyType.Success)
+                {
+                    if (input.ToLower() == "quit" || input.ToLower() == "exit" || input.ToLower() == "q")
+                        return false;
+                    else
+                        return true;
+                }
+                else
+                    return true;
+            });
+            return inputTask;
         }
 
         //bind& connect
@@ -61,10 +105,15 @@ namespace BackEnd
             return Task.Run(() =>
             {
                 IPEndPoint localEP = new IPEndPoint(IPAddress.Any, port);
+                IPEndPoint localEPForAgent = new IPEndPoint(IPAddress.Any, 30000);
 
                 listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 listenSocket.Bind(localEP);
                 listenSocket.Listen(backlog);
+
+                listenSocketforAgent = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                listenSocketforAgent.Bind(localEPForAgent);
+                listenSocketforAgent.Listen(backlog);
             });
         }
 
@@ -119,22 +168,21 @@ namespace BackEnd
                         {
                             string feName = null;
                             Socket frontEnd = await AcceptAsync();
+                            Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
                             IPEndPoint remoteEP = (IPEndPoint)frontEnd.RemoteEndPoint;
                             string remote = frontEnd.RemoteEndPoint.ToString();
                             string remoteIP = remoteEP.Address.ToString();
                             int remotePort = remoteEP.Port;
-                            if (!remoteIP.Equals("10.100.58.4"))
+
+                            if (!remoteIP.Contains("10.100.58.4"))
                             {
                                 feSocketList.Add(remote, frontEnd);
                                 redis.AddFEList(remoteIP, remotePort);
 
                                 feName = redis.AddFEConnectedInfo(remoteIP, remotePort);
                                 feNameSocketList.Add(feName, frontEnd);
-
                             }
-                            Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
                             Receive(frontEnd, recieveTask);
-
                             heartBeatList.Add(frontEnd, 0);
                         }
                     }
@@ -144,10 +192,13 @@ namespace BackEnd
                         Task<Socket> recieveTask = null;
                         string feName = null;
                         Socket frontEnd = await AcceptAsync();
+                        Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
+
                         IPEndPoint remoteEP = (IPEndPoint)frontEnd.RemoteEndPoint;
                         string remote = frontEnd.RemoteEndPoint.ToString();
                         string remoteIP = remoteEP.Address.ToString();
                         int remotePort = remoteEP.Port;
+
                         if (!remoteIP.Equals("10.100.58.4"))
                         {
                             feSocketList.Add(remote, frontEnd);
@@ -155,9 +206,11 @@ namespace BackEnd
 
                             feName = redis.AddFEConnectedInfo(remoteIP, remotePort);
                             feNameSocketList.Add(feName, frontEnd);
-
+                            
                         }
-                        Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
+
+                        
+
                         Receive(frontEnd, recieveTask);
 
                         heartBeatList.Add(frontEnd, 0);
@@ -173,8 +226,6 @@ namespace BackEnd
                     Console.WriteLine("[Server][Accept]  Fail.");
                 }
             }
-            
-
         }
 
         private Task<Socket> AcceptAsync()
@@ -185,7 +236,7 @@ namespace BackEnd
                 Socket socket;
                 try
                 {
-                    Console.WriteLine("Accepting...");
+                    //Console.WriteLine("Accepting...");
                     socket = listenSocket.Accept();
                 }
                 catch (Exception e)
@@ -198,6 +249,73 @@ namespace BackEnd
             });
             return acceptTask;
         }
+
+        public async void AcceptAgent()
+        {
+            if (dbConnected)
+            {
+                try
+                {
+                    if (acceptAgentTask != null)
+                    {
+
+                        Task<Socket> recieveTask = null;
+                        if (acceptAgentTask.IsCompleted)
+                        {
+                           
+                            Socket agent = await AcceptAsyncForAgent();
+                            Console.WriteLine("[Server][Accept]  Agent({0}) is Connected.", agent.RemoteEndPoint.ToString());
+
+                            Receive(agent, recieveTask);
+                            
+                        }
+                    }
+                    else
+                    {
+
+                        Task<Socket> recieveTask = null;
+                        Socket agent = await AcceptAsyncForAgent();
+
+                        Console.WriteLine("[Server][Accept]  Agent({0}) is Connected.", agent.RemoteEndPoint.ToString());
+                        Receive(agent, recieveTask);
+                       
+                    }
+
+                }
+                catch (SocketException)
+                {
+                    Console.WriteLine("[Server][Accept]  Fail.");
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("[Server][Accept]  Fail.");
+                }
+            }
+
+
+        }
+
+        private Task<Socket> AcceptAsyncForAgent()
+        {
+
+            acceptAgentTask = Task.Run<Socket>(() =>
+            {
+                Socket socket;
+                try
+                {
+                    //Console.WriteLine("Accepting...");
+                    socket = listenSocketforAgent.Accept();
+                }
+                catch (Exception e)
+                {
+                    socket = null;
+                    Console.WriteLine(e.ToString());
+                }
+
+                return socket;
+            });
+            return acceptAgentTask;
+        }
         #endregion
 
 
@@ -209,8 +327,6 @@ namespace BackEnd
             {
                 try
                 {
-
-
                     if (receiveTask != null)
                     {
                         if (receiveTask.IsCompleted)
@@ -260,18 +376,22 @@ namespace BackEnd
 
         public Packet? ReceiveAsync(Socket socket)
         {
-            Console.WriteLine("Receiving from FE({0})...", socket.RemoteEndPoint.ToString());
+            //Console.WriteLine("Receiving from FE({0})...", socket.RemoteEndPoint.ToString());
             Packet packet = new Packet();
 
             if (socket != null)
             {
                 try
                 {
-                    socket.ReceiveTimeout = 33 * 1000;
+                    if(heartBeatList.Keys.Contains(socket))
+                        socket.ReceiveTimeout = 33 * 1000;
 
                     byte[] buffer = new byte[HEAD_SIZE];
+
                     int readBytes = socket.Receive(buffer);
-                    heartBeatList[socket] = 0;
+
+                    if (heartBeatList.Keys.Contains(socket))
+                        heartBeatList[socket] = 0;
 
                     if (0 == readBytes)
                     {
@@ -306,6 +426,10 @@ namespace BackEnd
 
                 catch (SocketException e)
                 {
+                    if (!socket.Connected)
+                    {
+                        return null;
+                    }
                     if (e.ErrorCode == 10060)
                     {
 
@@ -359,15 +483,22 @@ namespace BackEnd
         private void CloseSocket(Socket socket)
         {
             Console.WriteLine("[Server][Close] FrontEnd({0}) ", socket.RemoteEndPoint.ToString());
-            feSocketList.Remove(socket.RemoteEndPoint.ToString());
-            heartBeatList.Remove(socket);
-            string ip = socket.RemoteEndPoint.ToString().Split(':')[0];
-            int port = int.Parse(socket.RemoteEndPoint.ToString().Split(':')[1]);
-            string feName = redis.GetFEName(socket.RemoteEndPoint.ToString());
-            redis.DelFEInfo(ip, port);
-            redis.DelFEList(ip, port);
-            redis.DelFEServiceInfo(feName);
-            redis.DelUserLoginKey(feName);
+            if (feSocketList.Keys.Contains(socket.RemoteEndPoint.ToString()))
+            {
+                feSocketList.Remove(socket.RemoteEndPoint.ToString());
+                string feName = redis.GetFEName(socket.RemoteEndPoint.ToString());
+                string ip = socket.RemoteEndPoint.ToString().Split(':')[0];
+                int port = int.Parse(socket.RemoteEndPoint.ToString().Split(':')[1]);
+                redis.DelFEInfo(ip, port);
+                redis.DelFEList(ip, port);
+                redis.DelFEServiceInfo(feName);
+                redis.DelUserLoginKey(feName);
+                redis.DelFEChattingRoomListKey(feName);
+            }
+            
+            if (heartBeatList.Keys.Contains(socket))
+                heartBeatList.Remove(socket);
+            
             socket.Close();
             
         }
@@ -392,15 +523,18 @@ namespace BackEnd
                 case Command.UPDATE_USER:
                     Update_User(packet, socket);
                     break;
-
-                //SIGNIN = 200;
+                
+                //DUMMY_SIGNUP = 130;
+                case Command.DUMMY_SIGNUP:
+                    DummySignUp(packet, socket);
+                    break;
+                
+                    //SIGNIN = 200;
                 case Command.SIGNIN:
                     SignIn(packet, socket);
                     break;
 
-                //DUMMY_SIGNIN = 220;
-                case Command.DUMMY_SIGNIN:
-                    break;
+                
 
                 //SIGNOUT = 300;
                 case Command.SIGNOUT:
@@ -452,32 +586,11 @@ namespace BackEnd
                     Advertise(packet, socket);
                     break;
 
-                //SERVER_START = 1200;
-
-                //SERVER_START_SUCCESS = 1202;
-
-                //SERVER_START_FAIL = 1205;
-
-
-                //SERVER_RESTART = 1240;
-
-                //SERVER_RESTART_SUCCESS = 1242;
-
-                //SERVER_RESTART_FAIL = 1245;
-
-
-                //SERVER_STOP = 1270;
-
-                //SERVER_STOP_SUCCESS = 1272;
-
-                //SERVER_STOP_FAIL = 1275;
-
-                //SERVER_INFO = 1300;
-                //SERVER_INFO_SUCCESS = 1302;
-                //SERVER_INFO_FAIL = 1305;
-                
                 //RANKINGS = 1400;   
-                                                
+                case Command.RANKINGS:
+                    UserRanking(packet, socket);
+                    break;
+
                 default:
                     break;
 
@@ -485,24 +598,7 @@ namespace BackEnd
 
         }
 
-        private void Advertise(Packet packet, Socket socket)
-        {
-            Console.WriteLine("[Server][Advertise]FE({0})", socket.RemoteEndPoint.ToString());
-
-            Header header = packet.header;
-
-            FBAdvertiseRequest advertiseReq = (FBAdvertiseRequest)mc.ByteToStructure(packet.data, typeof(FBAdvertiseRequest));
-
-
-
-            string remoteIP = new string(advertiseReq.ip).Split('\0')[0];
-            int remotePort = advertiseReq.port;
-            string remote = socket.RemoteEndPoint.ToString() ;
-
-            string feName = redis.GetFEName(remote);
-            redis.AddFEServiceInfo(feName, remoteIP, remotePort);
-
-        }
+       
 
         private string MakeCookie(string id, string password)
         {
@@ -513,7 +609,7 @@ namespace BackEnd
             data.Append(d.Date);
 
             SHA256 sha = new SHA256Managed();
-            byte[] hash = sha.ComputeHash(Encoding.ASCII.GetBytes(d.ToString()));
+            byte[] hash = sha.ComputeHash(Encoding.ASCII.GetBytes(data.ToString()));
 
             StringBuilder cookie = new StringBuilder();
             foreach (byte b in hash)
@@ -623,7 +719,39 @@ namespace BackEnd
                 Send(socket, sendPacket);
             }
         }
+        //case Command.DUMMY_SIGNUP:
+        public void DummySignUp(Packet packet, Socket socket)
+        {
+            Console.WriteLine("[Server][Signup] Dummy Request");
+            Header header = packet.header;
+            FBDummySignupRequest signupRequest = (FBDummySignupRequest)mc.ByteToStructure(packet.data, typeof(FBDummySignupRequest));
 
+            string usr = new string(signupRequest.user).Split('\0')[0];
+            string pw = new string(signupRequest.password).Split('\0')[0];
+            bool signup = mysql.CheckDupID(usr);
+
+            Packet sendPacket = new Packet();
+
+            if (signup)
+            {
+                sendPacket.header.code = Command.DUMMY_SIGNUP_SUCCESS;
+                sendPacket.header.size = 0;
+                sendPacket.header.uid = header.uid;
+                sendPacket.data = null;
+
+                mysql.InsertUser(usr, pw, true);
+                Send(socket, sendPacket);
+            }
+            else
+            {
+                sendPacket.header.code = Command.DUMMY_SIGNUP_FAIL;
+                sendPacket.header.size = 0;
+                sendPacket.header.uid = header.uid;
+                sendPacket.data = null;
+
+                Send(socket, sendPacket);
+            }
+        }
         //SIGNIN = 200;
         public void SignIn(Packet packet, Socket socket)
         {
@@ -635,7 +763,16 @@ namespace BackEnd
             bool signin = mysql.Login(new string(loginRequest.user).Split('\0')[0], new string(loginRequest.password).Split('\0')[0]);
             bool duplogin = false;
 
-            if (signin)
+            if (id == 0)
+            {
+                sendPacket.data = null;
+                sendPacket.header.code = Command.SIGNIN_FAIL;
+                sendPacket.header.size = 0;
+                sendPacket.header.uid = header.uid;
+                Send(socket, sendPacket);
+                Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
+            }
+            else if (signin)
             {
                 
                 
@@ -651,13 +788,14 @@ namespace BackEnd
                         sendPacket.header.size = 0;
                         sendPacket.header.uid = header.uid;
                         Send(socket, sendPacket);
+                        Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
                         duplogin = true;
                         break;
                     }
                 }
             }
             
-           if(!duplogin)
+           if(id!=0 && !duplogin)
             {
                 
                 if (signin)
@@ -683,13 +821,14 @@ namespace BackEnd
 
                         Socket fesocket = feSocketList[newFE];
                         Send(fesocket, sendPacket);
-                        Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
-                        Thread.Sleep(2000);
+                        Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", fesocket.RemoteEndPoint.ToString(), sendPacket.header.code);
+
+                       // Thread.Sleep(2000);
                         FBSigninResponse LoginResponse = new FBSigninResponse(feInfo.Ip, feInfo.Port, cookie);
                         sendPacket.data = mc.StructureToByte(LoginResponse);
                         sendPacket.header.code = Command.SIGNIN_SUCCESS;
                         sendPacket.header.size = (ushort)sendPacket.data.Length;
-                        sendPacket.header.uid = id;
+                        sendPacket.header.uid = header.uid;
                         Send(socket, sendPacket);
                         Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
                     }
@@ -718,11 +857,6 @@ namespace BackEnd
            
         }
 
-        //DUMMY_SIGNIN = 220;
-        public void DummySignIn(Packet packet, Socket socket)
-        {
-           
-        }
 
         //INITIALIZE = 250; 
         public void ConnectPass_Succ(Packet packet, Socket socket)
@@ -982,6 +1116,87 @@ namespace BackEnd
             sendPacket.header.size = 0;
             Send(socket, sendPacket);
         }
+
+        // ADVERTISE = 1100;
+        private void Advertise(Packet packet, Socket socket)
+        {
+            Console.WriteLine("[Server][Advertise]FE({0})", socket.RemoteEndPoint.ToString());
+
+            Header header = packet.header;
+
+            FBAdvertiseRequest advertiseReq = (FBAdvertiseRequest)mc.ByteToStructure(packet.data, typeof(FBAdvertiseRequest));
+
+
+
+            string remoteIP = new string(advertiseReq.ip).Split('\0')[0];
+            int remotePort = advertiseReq.port;
+            string remote = socket.RemoteEndPoint.ToString();
+
+            string feName = redis.GetFEName(remote);
+            redis.AddFEServiceInfo(feName, remoteIP, remotePort);
+
+        }
+
+        //RANKINGS = 1400;   
+        public void UserRanking(Packet packet, Socket socket)
+        {
+
+
+            //string[] results = Array.ConvertAll(redis.GetChattingRanking(10), x => (string)x);
+            SortedSetEntry[] results = (SortedSetEntry[])redis.GetChattingRanking(10);
+            UserHandle[] ranking = new UserHandle[results.Length];
+
+            for (int idx = 0; idx < results.Length; idx++)
+
+            {
+
+                ranking[idx] = new UserHandle();
+
+                ranking[idx].ID = new char[12];
+
+
+                Array.Copy(((string)results[idx].Element).ToCharArray(), ranking[idx].ID, ((string)results[idx].Element).ToCharArray().Length);
+
+                ranking[idx].Rank = idx + 1;
+
+                ranking[idx].MSGCOUNT = (int)results[idx].Score;
+
+            }
+
+
+            if (results.Length != 0)
+
+            {
+
+                byte[] rankingArr = mc.StructureArrayToByte(ranking, typeof(UserHandle));
+
+                Packet sendPack = new Packet();
+                sendPack.data = rankingArr;
+                sendPack.header.code = Command.RANKINGS_SUCCESS;
+                sendPack.header.size = (ushort)rankingArr.Length;
+
+                Send(socket, sendPack);
+                Console.WriteLine("[Server][Rank]{0} Success", socket.RemoteEndPoint.ToString());
+
+            }
+
+            else
+
+            {
+
+               Packet sendPack = new Packet();
+
+                sendPack.header.code = Command.RANKINGS_SUCCESS;
+                sendPack.data = null;
+                sendPack.header.size = (ushort)results.Length;
+
+                Send(socket, sendPack);
+                Console.WriteLine("[Server][Rank]{0} Success", socket.RemoteEndPoint.ToString());
+
+            }
+
+        }
+
     }
 
 

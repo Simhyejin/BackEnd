@@ -34,6 +34,8 @@ namespace LoginServer
         Task<Socket> acceptTask = null;
         Task<bool> inputTask = null;
 
+        public static int userID = 0;
+
         public LoginServer(int port)
         {
             
@@ -155,7 +157,7 @@ namespace LoginServer
                         if (acceptTask.IsCompleted)
                         {
                             Socket client = await AcceptAsync();
-                            int n = UserIDGenerator.GenerateRoomNo();
+                            int n = GenerateUserID();
                             clientList.Add(n, client);
                             userList.Add(client, n);
                             Console.WriteLine("[ {0,-5} ][ {1,-8} ] Client({2}) is Connected", "Server", "Accept", client.RemoteEndPoint.ToString());
@@ -168,7 +170,7 @@ namespace LoginServer
                     {
                         Task<Socket> recieveTask = null;
                         Socket client = await AcceptAsync();
-                        int n = UserIDGenerator.GenerateRoomNo();
+                        int n = GenerateUserID();
                         clientList.Add(n, client);
                         userList.Add(client, n);
 
@@ -546,17 +548,13 @@ namespace LoginServer
             Send(socket, sendPacket);
         }
 
-    }
-
-    public static class UserIDGenerator
-    {
-        public static int userID = 0;
-        public static int GenerateRoomNo()
+        public static int GenerateUserID()
         {
             Interlocked.Increment(ref userID);
             return userID;
         }
     }
+
 
 }
 

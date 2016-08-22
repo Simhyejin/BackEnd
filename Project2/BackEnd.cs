@@ -776,7 +776,7 @@ namespace BackEnd
             {
                 
                 
-                string[] list = (string[])redis.GetFEIpPortList();
+                string[] list = (string[])redis.GetFEAddressList();
 
                 foreach (string fe in list)
                 {
@@ -804,7 +804,7 @@ namespace BackEnd
 
 
                     Random r = new Random();
-                    string[] feList = (string[])redis.GetFEIpPortList();
+                    string[] feList = (string[])redis.GetFEAddressList();
                     if (feList.Length > 0)
                     {
                         string newFE = feList[r.Next(0, feList.Length)];
@@ -896,7 +896,7 @@ namespace BackEnd
         //ROOM_LIST = 400;
         public void RoomList(Packet packet, Socket socket)
         {
-            string[] feList = (string[])redis.GetFEIpPortList();
+            string[] feList = (string[])redis.GetFEAddressList();
 
             int[] chatRoomList = null;
             foreach (string fe in feList)
@@ -980,7 +980,7 @@ namespace BackEnd
             }
             else
             {
-                string[] felist = (string[])redis.GetFEIpPortList();
+                string[] felist = (string[])redis.GetFEAddressList();
 
                 foreach (string feIpPort in felist)
                 {

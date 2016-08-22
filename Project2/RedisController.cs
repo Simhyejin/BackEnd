@@ -29,20 +29,22 @@ namespace BackEnd
 
         public static string FE_List = "fe:list";
         public static string Login = "login";
-        public static string ChattingRoomList = "chattingroomlist";
+        public static string RoomList = "roomlist";
 
         public static string Room = "room";
         public static string Count = "count";
 
         public static string User = "user";
+        public static string Dummy = "dummy";
 
         public static string Ranking_Chatting = "ranking:chatting";
 
         public static string FEServiceInfo = "serviceinfo";
 
-        public static string Dummy = "dummy";
+        public static int feNo = 0;
+        public static int roomNo = 0;
 
-        
+
         private RedisController() { }
 
         public static RedisController RedisInstance
@@ -84,7 +86,7 @@ namespace BackEnd
         public string AddFEConnectedInfo(string ip, int port)
         {
             string key = ip + DELIMITER + port;
-            string feName = "fe" + FENameGenerator.GenerateName();
+            string feName = "fe" + GenerateFEName();
             if (db.StringSet(key, feName))
                 return feName;
             return "";
@@ -134,7 +136,7 @@ namespace BackEnd
        
         public bool HasChatRoom(string feName, int roomNo)
         {
-            string key = feName + DELIMITER + ChattingRoomList;
+            string key = feName + DELIMITER + RoomList;
             return db.SetContains(key, roomNo);
         }
 
@@ -146,14 +148,12 @@ namespace BackEnd
         }
 
        
-        public object GetFEIpPortList()
+        public object GetFEAddressList()
         {
             string KEY = "fe:list";
             string[] feList = null;
 
             RedisValue[] result = db.SetMembers(KEY);
-
-            // result => ip:port 임
             feList = new string[result.Length];
             for (int idx = 0; idx < result.Length; idx++)
             {
@@ -257,24 +257,18 @@ namespace BackEnd
         
         public int CreateChatRoom(string feName, string id)
         {
-            StringBuilder sb = new StringBuilder();
-
             int numId = (int)db.StringGet(id);
+            int roomNo = GenerateRoomNo();
 
-         
-            int roomNo = ChatRoomNumberGenerator.GenerateRoomNo();
-
-            Console.WriteLine("Generated room number : " + roomNo);
+            StringBuilder sb = new StringBuilder();
 
             sb.Append(feName);
             sb.Append(DELIMITER);
-            sb.Append(ChattingRoomList);
+            sb.Append(RoomList);
 
             string key = sb.ToString();
 
             db.SetAdd(key, roomNo);
-
-            
             NewChatRoomCount(feName, roomNo);
 
             return roomNo;
@@ -323,16 +317,14 @@ namespace BackEnd
 
         public bool DelFEChattingRoomListKey(string feName)
         {
-            string chattingRoomList = "chattingroomlist";
-            string key = feName + DELIMITER + chattingRoomList;
+            string key = feName + DELIMITER + RoomList;
 
             return db.KeyDelete(key);
         }
 
         public bool DelFEChattingRoom(string feName, int roomNo)
         {
-            string chattingRoomList = "chattingroomlist";
-            string key = feName + DELIMITER + chattingRoomList;
+            string key = feName + DELIMITER + RoomList;
 
             return db.SetRemove(key, roomNo);
         }
@@ -343,11 +335,10 @@ namespace BackEnd
             int[] roomList = null;
 
             StringBuilder sb = new StringBuilder();
-            string chattingRoomList = "chattingroomlist";
-
+           
             sb.Append(feName);
             sb.Append(DELIMITER);
-            sb.Append(chattingRoomList);
+            sb.Append(RoomList);
 
             string key = sb.ToString();
 
@@ -384,26 +375,19 @@ namespace BackEnd
             if (Redis != null)
                 redisdb.GetServer(REDIS_IP, REDIS_PORT).FlushDatabase();
         }
-    }
 
-    public static class FENameGenerator
-    {
-        public static int num = 0;
-        public static int GenerateName()
+        public static int GenerateFEName()
         {
-            Interlocked.Increment(ref num);
-            return num;
+            Interlocked.Increment(ref feNo);
+            return feNo;
         }
 
-    }
-
-    public static class ChatRoomNumberGenerator
-    {
-        public static int roomNo = 0;
         public static int GenerateRoomNo()
         {
             Interlocked.Increment(ref roomNo);
             return roomNo;
         }
+
     }
+
 }

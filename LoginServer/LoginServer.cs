@@ -38,7 +38,6 @@ namespace LoginServer
 
         public LoginServer(int port)
         {
-            
             this.port = port;
             listening = true;
             clientList = new Dictionary<int, Socket>();
@@ -298,7 +297,7 @@ namespace LoginServer
                     int readBytes = socket.Receive(buffer);
 
                     //if (heartBeatlist.Keys.Contains(socket))
-                        heartBeatlist[socket] = 0;
+                    heartBeatlist[socket] = 0;
 
                     if (0 == readBytes)
                     {

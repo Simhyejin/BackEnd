@@ -8,10 +8,7 @@ using System.Threading;
 
 namespace BackEnd
 {
-    /*****
-     * 
-     * 함수 명 다시 ...
-     */
+    
     public class RedisController
     {
         const string REDIS_IP = "192.168.56.110";
@@ -19,8 +16,7 @@ namespace BackEnd
 
         private ConnectionMultiplexer redisdb = null;
         private IDatabase db = null;
-        private ISubscriber pubsub = null;
-
+        
         private static RedisController redisInstance = null;
 
 
@@ -70,8 +66,7 @@ namespace BackEnd
         {
             try
             {
-                redisdb = ConnectionMultiplexer.Connect("192.168.56.110:6379" + ",allowAdmin=true,password=433redis!");
-                pubsub = redisdb.GetSubscriber();
+                redisdb = ConnectionMultiplexer.Connect("192.168.56.110:6379" + ",allowAdmin=true, password=433redis!");
                 db = redisdb.GetDatabase();
                 Console.WriteLine("[ Redis ][ Connect ] Success");
                 return true;
@@ -82,6 +77,15 @@ namespace BackEnd
             }
         }
 
+        private string CombineDelimiter(string s1, string s2, string delimiter)
+        {
+            StringBuilder result = new StringBuilder();
+            result.Append(s1);
+            result.Append(delimiter);
+            result.Append(s2);
+
+            return result.ToString();
+        }
 
         public string AddFEConnectedInfo(string ip, int port)
         {
@@ -257,10 +261,14 @@ namespace BackEnd
         
         public int CreateChatRoom(string feName, string id)
         {
+            StringBuilder sb = new StringBuilder();
+
             int numId = (int)db.StringGet(id);
+
+         
             int roomNo = GenerateRoomNo();
 
-            StringBuilder sb = new StringBuilder();
+            Console.WriteLine("Generated room number : " + roomNo);
 
             sb.Append(feName);
             sb.Append(DELIMITER);
@@ -269,6 +277,8 @@ namespace BackEnd
             string key = sb.ToString();
 
             db.SetAdd(key, roomNo);
+
+            
             NewChatRoomCount(feName, roomNo);
 
             return roomNo;
@@ -317,14 +327,16 @@ namespace BackEnd
 
         public bool DelFEChattingRoomListKey(string feName)
         {
-            string key = feName + DELIMITER + RoomList;
+            string chattingRoomList = "chattingroomlist";
+            string key = feName + DELIMITER + chattingRoomList;
 
             return db.KeyDelete(key);
         }
 
         public bool DelFEChattingRoom(string feName, int roomNo)
         {
-            string key = feName + DELIMITER + RoomList;
+            string chattingRoomList = "chattingroomlist";
+            string key = feName + DELIMITER + chattingRoomList;
 
             return db.SetRemove(key, roomNo);
         }
@@ -335,10 +347,11 @@ namespace BackEnd
             int[] roomList = null;
 
             StringBuilder sb = new StringBuilder();
-           
+            string chattingRoomList = "chattingroomlist";
+
             sb.Append(feName);
             sb.Append(DELIMITER);
-            sb.Append(RoomList);
+            sb.Append(chattingRoomList);
 
             string key = sb.ToString();
 

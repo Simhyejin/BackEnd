@@ -1,15 +1,11 @@
-﻿using LoginServer.Protocol;
+﻿using Login.Protocol;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
-
+using static Login.Protocol.Packet;
 using static System.BitConverter;
 
-namespace LoginServer
+namespace Login
 {
     class MConvert
     {
@@ -23,7 +19,7 @@ namespace LoginServer
 
         private const int HEADER_SIZE = 12;
 
-        public  byte[] PacketToBytes(Packet packet)
+        public byte[] PacketToBytes(Packet packet)
         {
             byte[] buffer = new byte[sizeof(long) + sizeof(ushort) + sizeof(ushort) + packet.header.size];
             Array.Copy(GetBytes(packet.header.uid), 0, buffer, FieldIndex.UID, sizeof(long));
@@ -35,7 +31,7 @@ namespace LoginServer
             return buffer;
         }
 
-        public  Packet BytesToPacket(byte[] bytes)
+        public Packet BytesToPacket(byte[] bytes)
         {
             byte[] headerBytes = new byte[HEADER_SIZE];
             byte[] dataBytes = new byte[bytes.Length - HEADER_SIZE];
@@ -48,7 +44,7 @@ namespace LoginServer
             return packet;
         }
 
-        public  Header BytesToHeader(byte[] bytes)
+        public Header BytesToHeader(byte[] bytes)
         {
             Header header = new Header();
 
@@ -58,7 +54,6 @@ namespace LoginServer
 
             return header;
         }
-
 
         public object ByteToStructure(byte[] data, Type type)
         {
@@ -86,29 +81,42 @@ namespace LoginServer
             return data;
         }
 
-        public List<int> BytesToList(byte[] body)
+        public byte[] StructureArrayToByte(object obj, Type type)
+
         {
-            List<int> list = new List<int>();
-            for (int idx = 0; idx < (body.Length / 4); idx++)
+
+            UserHandle[] list = (UserHandle[])obj;
+
+            byte[] resultArr = new byte[Marshal.SizeOf(type) * list.Length];
+
+            int idx = 0;
+
+
+            foreach (UserHandle userrank in list)
+
             {
-                byte[] tmpArr = new byte[4];
-                Array.Copy(body, idx * 4, tmpArr, 0, 4); 
+                int datasize = Marshal.SizeOf(userrank);
 
-                int tmp = BitConverter.ToInt32(tmpArr, 0);
-                list.Add(tmp);
+                IntPtr buff = Marshal.AllocHGlobal(datasize); 
+
+                Marshal.StructureToPtr(userrank, buff, false); 
+
+                byte[] data = new byte[datasize];
+
+                Marshal.Copy(buff, data, 0, datasize); 
+
+                Marshal.FreeHGlobal(buff); 
+
+
+                Array.Copy(data, 0, resultArr, idx * (datasize), data.Length);
+
+                idx++;
+
             }
-            return list;
-        }
 
-        public string ByteToString(byte[] buff)
-        {
-            return Encoding.UTF8.GetString(buff);
-        }
+            return resultArr;
 
-        public byte[] StringToByte(string str)
-        {
-            return Encoding.UTF8.GetBytes(str);
-        }
+        }
 
 
         public enum KeyType
@@ -166,6 +174,7 @@ namespace LoginServer
                 }
             }
         }
+
     }
 
 }

@@ -99,17 +99,17 @@ namespace BackEnd
             foreach (UserHandle userrank in list)
 
             {
-                int datasize = Marshal.SizeOf(userrank);//((PACKET_DATA)obj).TotalBytes; // 구조체에 할당된 메모리의 크기를 구한다.
+                int datasize = Marshal.SizeOf(userrank);
 
-                IntPtr buff = Marshal.AllocHGlobal(datasize); // 비관리 메모리 영역에 구조체 크기만큼의 메모리를 할당한다.
+                IntPtr buff = Marshal.AllocHGlobal(datasize); 
 
-                Marshal.StructureToPtr(userrank, buff, false); // 할당된 구조체 객체의 주소를 구한다.
+                Marshal.StructureToPtr(userrank, buff, false); 
 
-                byte[] data = new byte[datasize]; // 구조체가 복사될 배열
+                byte[] data = new byte[datasize];
 
-                Marshal.Copy(buff, data, 0, datasize); // 구조체 객체를 배열에 복사
+                Marshal.Copy(buff, data, 0, datasize); 
 
-                Marshal.FreeHGlobal(buff); // 비관리 메모리 영역에 할당했던 메모리를 해제함
+                Marshal.FreeHGlobal(buff); 
 
 
                 Array.Copy(data, 0, resultArr, idx * (datasize), data.Length);
@@ -118,35 +118,10 @@ namespace BackEnd
 
             }
 
-            return resultArr; // 배열을 리턴
+            return resultArr;
 
         }
 
-
-
-        public List<int> BytesToList(byte[] body)
-        {
-            List<int> list = new List<int>();
-            for (int idx = 0; idx < (body.Length / 4); idx++)
-            {
-                byte[] tmpArr = new byte[4];
-                Array.Copy(body, idx * 4, tmpArr, 0, 4); // tmpArr에 byte4개 들어가있음.
-
-                int tmp = BitConverter.ToInt32(tmpArr, 0);
-                list.Add(tmp);
-            }
-            return list;
-        }
-
-        public string ByteToString(byte[] buff)
-        {
-            return Encoding.UTF8.GetString(buff);
-        }
-
-        public byte[] StringToByte(string str)
-        {
-            return Encoding.UTF8.GetBytes(str);
-        }
 
         public enum KeyType
         {

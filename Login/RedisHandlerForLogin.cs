@@ -29,7 +29,8 @@ namespace Login
                                     KeepAlive = 180,
                                     Password = "433redis!",
                                     AllowAdmin = true
-                                     });
+            });
+
             ClearDB();
         }
 
@@ -43,13 +44,17 @@ namespace Login
         public void CloseSocket(Socket socket)
         {
             string feName = redis.GetFEName(socket.RemoteEndPoint.ToString());
-            string ip = socket.RemoteEndPoint.ToString().Split(':')[0];
-            int port = int.Parse(socket.RemoteEndPoint.ToString().Split(':')[1]);
-            redis.DelFEInfo(ip, port);
-            redis.DelFEList(ip, port);
-            redis.DelFEInfoForClient(feName);
-            redis.DelUserLoginFE(feName);
-            redis.DelFERoomList(feName);
+            if(feName != null)
+            {
+                string ip = socket.RemoteEndPoint.ToString().Split(':')[0];
+                int port = int.Parse(socket.RemoteEndPoint.ToString().Split(':')[1]);
+                bool a = redis.DelFEInfo(ip, port);
+                bool a1 = redis.DelFEList(ip, port);
+                bool a2 = redis.DelFEInfoForClient(feName);
+                bool a3 = redis.DelUserLoginFE(feName);
+                bool a4 = redis.DelFERoomList(feName);
+            }
+          
 
         }
 
@@ -63,7 +68,7 @@ namespace Login
         public void DeleteUser(string feipport, long userid, string username)
         {
             string feName = redis.GetFEName(feipport);
-            redis.SetUserLogin(feName, userid, false);
+            redis.DelUserLogin(feName, userid);
             redis.DelUser(username);
         }
 
@@ -104,7 +109,7 @@ namespace Login
             string feName = redis.GetFEName(feAddress);
             redis.AddUser(username, userid);
             redis.AddUserList(username);
-            redis.SetUserLogin(feName, userid, true);
+            redis.SetUserLogin(feName, userid);
             redis.SetUserType(username, isDummy);
         }
 
@@ -122,7 +127,7 @@ namespace Login
         /// <param name="roomNo"></param>
         /// <param name="newFE"></param>
         /// <returns> -1 : doesn't exist room  0 : success 1 : full room </returns>
-        public int GetFEinfoForClient(string username, int roomNo, out FrontEnd newFE)
+        public int GetFERoomInfo(string username, int roomNo, out FrontEnd newFE)
         {
             string[] felist = (string[])redis.GetFEList();
             newFE = null;

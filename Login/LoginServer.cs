@@ -440,8 +440,8 @@ namespace Login
             {
                 try
                 {
-                    if(heartBeatList.Keys.Contains(socket))
-                        socket.ReceiveTimeout = 33 * 1000;
+                    if (heartBeatList.Keys.Contains(socket))
+                        socket.ReceiveTimeout = 33 * 100;
 
                     byte[] buffer = new byte[HEAD_SIZE];
 
@@ -485,9 +485,10 @@ namespace Login
                 {
                     if (!socket.Connected)
                     {
+                        CloseSocket(socket);
                         return null;
                     }
-                    if (e.ErrorCode == 10060)
+                     if (e.ErrorCode == 10060)
                     {
 
                         if (++heartBeatList[socket] > 3)
@@ -841,7 +842,7 @@ namespace Login
             string username = mysql.GetUserNamebyID(header.uid);
 
             FrontEnd fe = new FrontEnd();
-            int result = redis.GetFEinfoForClient(username, joinReq.roomNum, out fe);
+            int result = redis.GetFERoomInfo(username, joinReq.roomNum, out fe);
 
             if(result == 1)
             {
@@ -875,6 +876,8 @@ namespace Login
                 sendPacket.header.code = Command.JOIN_REDIRECT;
                 sendPacket.header.uid = header.uid;
                 sendPacket.header.size = (ushort)sendPacket.data.Length;
+
+                redis.DeleteUser(feNameSocketList[fe.Name].RemoteEndPoint.ToString(), header.uid, username);
             }
 
             Send(socket, sendPacket);

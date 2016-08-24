@@ -208,18 +208,28 @@ namespace Login
         }
 
 
-        public bool SetUserLogin(string feName, long userID, bool state)
+        public bool SetUserLogin(string feName, long userID)
         {
             string key = CombineDelimiter(feName, "login", ":");
 
-            return db.StringSetBit(key, userID, state);
+            return db.SetAdd(key, userID);
         }
 
         public bool GetUserLogin(string feName, long userID)
         {
             string key = CombineDelimiter(feName, "login", ":");
 
-            return db.StringGetBit(key, userID);
+            RedisValue[] result = db.SetMembers(key);
+
+            for (int idx = 0; idx < result.Length; idx++)
+            {
+                if(result[idx] == userID)
+                {
+                    return true;
+                }
+                     
+            }
+            return false;
         }
 
         public bool DelUserLoginFE(string feName)
@@ -231,14 +241,16 @@ namespace Login
         public bool DelUserLogin(string feName, long userID)
         {
             string key = CombineDelimiter(feName, "login", ":");
-            return db.KeyDelete(key);
+            return db.SetRemove(key, userID);
         }
 
         public bool SetUserType(string id, bool userType)
         {
             long userID = GetUserID(id);
-
-            return db.StringSetBit("user", userID, userType);
+            if(!userType)
+                return db.StringSetBit("user", userID, userType);
+            else
+                return db.StringSetBit("dummy", userID, userType);
         }
 
 

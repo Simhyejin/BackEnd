@@ -248,7 +248,7 @@ namespace Login
                             Task<Socket> recieveTask = null;
                             string feName = null;
                             Socket frontEnd = await AcceptAsyncFE();
-                            Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
+                            Console.WriteLine("[ {0,-5} ][ {1,-8} ] FrontEnd({2}) is Connected", "Server", "Accept", frontEnd.RemoteEndPoint.ToString());
                             IPEndPoint remoteEP = (IPEndPoint)frontEnd.RemoteEndPoint;
                             string remote = frontEnd.RemoteEndPoint.ToString();
                             string remoteIP = remoteEP.Address.ToString();
@@ -268,7 +268,7 @@ namespace Login
                         Task<Socket> recieveTask = null;
                         string feName = null;
                         Socket frontEnd = await AcceptAsyncFE();
-                        Console.WriteLine("[Server][Accept]  FrontEnd({0}) is Connected.", frontEnd.RemoteEndPoint.ToString());
+                        Console.WriteLine("[ {0,-5} ][ {1,-8} ] FrontEnd({2}) is Connected", "Server", "Accept", frontEnd.RemoteEndPoint.ToString());
                         IPEndPoint remoteEP = (IPEndPoint)frontEnd.RemoteEndPoint;
                         string remote = frontEnd.RemoteEndPoint.ToString();
                         string remoteIP = remoteEP.Address.ToString();
@@ -286,11 +286,11 @@ namespace Login
                 }
                 catch (SocketException)
                 {
-                    Console.WriteLine("[Server][Accept]  Fail.");
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ] Fail", "ERORR", "Accept");
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine("[Server][Accept]  Fail.");
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ] Fail", "ERORR", "Accept");
                 }
             }
         }
@@ -328,7 +328,7 @@ namespace Login
                         if (acceptAgentTask.IsCompleted)
                         {
                             Socket agent = await AcceptAsyncForAgent();
-                            Console.WriteLine("[Server][Accept]  Agent({0}) is Connected.", agent.RemoteEndPoint.ToString());
+                            Console.WriteLine("[ {0,-5} ][ {1,-8} ] Agent({2}) is Connected", "Server", "Accept", agent.RemoteEndPoint.ToString());
 
                             Receive(agent, recieveTask);
                         }
@@ -338,17 +338,17 @@ namespace Login
                         Task<Socket> recieveTask = null;
                         Socket agent = await AcceptAsyncForAgent();
 
-                        Console.WriteLine("[Server][Accept]  Agent({0}) is Connected.", agent.RemoteEndPoint.ToString());
+                        Console.WriteLine("[ {0,-5} ][ {1,-8} ] Agent({2}) is Connected", "Server", "Accept", agent.RemoteEndPoint.ToString());
                         Receive(agent, recieveTask);
                     }
                 }
                 catch (SocketException)
                 {
-                    Console.WriteLine("[Server][Accept]  Fail.");
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ] Fail", "ERORR", "Accept");
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine("[Server][Accept]  Fail.");
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ] Fail", "ERORR", "Accept");
                 }
             }
 
@@ -405,7 +405,7 @@ namespace Login
                     else
                     {
                         Packet? packet = await Task.Run<Packet?>(() => ReceiveAsync(socket));
-
+                        
                         if (packet == null)
                         {
                             ;
@@ -420,14 +420,12 @@ namespace Login
                 }
                 catch (SocketException e)
                 {
-                    Console.WriteLine("[Server][Receive] 1 {0}", e.ToString());
-                    Console.WriteLine("[Server][Receive] FrontEnd({0}) socket error", socket.RemoteEndPoint.ToString());
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ] ({2}) Socket error : {3}", "ERORR", "Accept", socket.RemoteEndPoint.ToString(), e.ToString());
+                    
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("[Server][Receive] 2 {0}", e.ToString());
-                    Console.WriteLine("[Server][Receive] FrontEnd({0}) error", socket.RemoteEndPoint.ToString());
-
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ] Client({2}) Unhandled Socket error : {3}", "ERORR", "Accept", socket.RemoteEndPoint.ToString(), e.ToString());
                 }
             }
 
@@ -478,7 +476,7 @@ namespace Login
                             packet.data = buffer;
                         }
                         if(header.code!=1000 && header.code!=1002)
-                            Console.WriteLine("[Server][Receive][{0}] FrontEnd({1})", header.code, socket.RemoteEndPoint.ToString());
+                            Console.WriteLine("[ {0,-5} ][ {1,-8} ][ {2,-4} ] {3}", "Server", "Receive", header.code, socket.RemoteEndPoint.ToString());
                         return packet;
                     }
                 }
@@ -500,14 +498,13 @@ namespace Login
                     }
                     else
                     {
-                        Console.WriteLine("[Server][Receive]3 {0}", e.ToString());
-                        Console.WriteLine("[Server][Receive]3 {0}", e.ErrorCode);
+                        Console.WriteLine("[ {0,-5} ][ {1,-8} ] {2} Socket error : {3}", "ERORR", "Receive", socket.RemoteEndPoint.ToString(), e.ToString());
                         return null;
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("[Server][Receive]4 ", e.ToString());
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ] {2}) Unhandled error : {3}", "ERORR", "Receive", socket.RemoteEndPoint.ToString(), e.ToString());
                     return null;
                 }
             }
@@ -524,24 +521,29 @@ namespace Login
             {
                 byte[] bytes = mc.PacketToBytes(packet);
                 int sendBytes = socket.Send(bytes);
-
+                if(packet.header.code != 1002)
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ][ {2,-4} ] {3}", "Server", "Send", packet.header.code, socket.RemoteEndPoint.ToString());
             }
             catch (SocketException e)
             {
-                Console.WriteLine("[Server][Send] FrontEnd({0}) socket error", socket.RemoteEndPoint.ToString());
-                Console.WriteLine(e.ToString());
+                if (!socket.Connected)
+                    CloseSocket(socket);
+                else
+                {
+                    Console.WriteLine("[ {0,-5} ][ {1,-8} ][ {2,-4} ] {3} socket error: {4}", "ERORR", "Send", packet.header.code, socket.RemoteEndPoint.ToString(), e.ToString());
+                }
             }
             catch (Exception e)
             {
-                Console.WriteLine("[Server][Send] FrontEnd({0}) error", socket.RemoteEndPoint.ToString());
-                Console.WriteLine(e.ToString());
+                //CloseSocket(socket);
+                Console.WriteLine("[ {0,-5} ][ {1,-8} ][ {2,-4} ] {3} unhandled error: {4}", "ERORR", "Send", packet.header.code, socket.RemoteEndPoint.ToString(), e.ToString());
             }
         }
         #endregion
 
         private void CloseSocket(Socket socket)
         {
-            Console.WriteLine("[Server][Close] FrontEnd({0}) ", socket.RemoteEndPoint.ToString());
+            Console.WriteLine("[ {0,-5} ][ {1,-8} ] {2}", "server", "Close", socket.RemoteEndPoint.ToString());
             feSocketList.Remove(socket.RemoteEndPoint.ToString());
             redis.CloseSocket(socket);
             heartBeatList.Remove(socket);
@@ -696,6 +698,8 @@ namespace Login
         //UPDATE_USER = 120;
         public void Update_User(Packet packet, Socket socket)
         {
+            Console.WriteLine("[Server][Update] FE({0})", socket.RemoteEndPoint.ToString());
+
             Header header = packet.header;
             FBUpdateUserRequest updateUserReq = (FBUpdateUserRequest)mc.ByteToStructure(packet.data, typeof(FBUpdateUserRequest));
 
@@ -762,14 +766,15 @@ namespace Login
 
         public void SignIn(Packet packet, Socket socket)
         {
+            Console.WriteLine("[Server][Signin]Request");
             Header header = packet.header;
             FBSigninRequest loginRequest = (FBSigninRequest)mc.ByteToStructure(packet.data, typeof(FBSigninRequest));
             int id = mysql.GetUserID(new string(loginRequest.user).Split('\0')[0]);
 
             Packet sendPacket = new Packet();
             bool signin = mysql.Login(new string(loginRequest.user).Split('\0')[0], new string(loginRequest.password).Split('\0')[0]);
-
-            if (id!=0 && signin && !redis.DupplicateSignIn(id))
+            bool dupSignIn = redis.DupplicateSignIn(id);
+            if (id!=0 && signin && !dupSignIn)
             {
                 string cookie = MakeCookie(new string(loginRequest.user), new string(loginRequest.password));
 
@@ -787,7 +792,7 @@ namespace Login
 
                     Socket fesocket = feSocketList[newFE];
                     Send(fesocket, sendPacket);
-                    Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", fesocket.RemoteEndPoint.ToString(), sendPacket.header.code);
+                    Console.WriteLine("[Server][Send] Client({0}) {1}", fesocket.RemoteEndPoint.ToString(), sendPacket.header.code);
 
                     FBSigninResponse LoginResponse = new FBSigninResponse(ip, port, cookie);
                     sendPacket.data = mc.StructureToByte(LoginResponse);
@@ -795,7 +800,7 @@ namespace Login
                     sendPacket.header.size = (ushort)sendPacket.data.Length;
                     sendPacket.header.uid = header.uid;
                     Send(socket, sendPacket);
-                    Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
+                    Console.WriteLine("[Server][Send] Client({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
 
                     return ;
                 }
@@ -807,8 +812,13 @@ namespace Login
             sendPacket.data = null;
 
             Send(socket, sendPacket);
-            Console.WriteLine("[Server][Send] FrontEnd({0}) {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
 
+            if(dupSignIn)
+                Console.WriteLine("[Server][Send] Client({0}) Dupplicated Login {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
+            else if(id == 0)
+                Console.WriteLine("[Server][Send] Client({0}) Not exist User{1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
+            else
+                Console.WriteLine("[Server][Send] Client({0}) Password Wrong{1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
         }
 
         //ConnectPass_Succ; 
@@ -875,7 +885,6 @@ namespace Login
         //HEARTBEAT = 1000;
         private void ReceiveHeartBeat(Packet packet, Socket socket)
         {
-            //Console.WriteLine("[Server][Receive]Heartbeat from FE({0})", socket.RemoteEndPoint.ToString());
             heartBeatList[socket] = 0;
             Packet sendPacket = new Packet();
             sendPacket.data = null;
@@ -888,7 +897,7 @@ namespace Login
         // ADVERTISE = 1100;
         private void Advertise(Packet packet, Socket socket)
         {
-            Console.WriteLine("[Server][Advertise]FE({0})", socket.RemoteEndPoint.ToString());
+            Console.WriteLine("[Server][Advertise] FE({0})", socket.RemoteEndPoint.ToString());
 
             FBAdvertiseRequest advertiseReq = (FBAdvertiseRequest)mc.ByteToStructure(packet.data, typeof(FBAdvertiseRequest));
 

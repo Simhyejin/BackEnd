@@ -30,8 +30,15 @@ namespace Login
                                     Password = "433redis!",
                                     AllowAdmin = true
                                      });
-            
+            ClearDB();
         }
+
+
+        public void ClearDB()
+        {
+            redis.Connection.GetServer(REDIS_IP,REDIS_PORT).FlushAllDatabases();
+        }
+
 
         public void CloseSocket(Socket socket)
         {
@@ -41,7 +48,7 @@ namespace Login
             redis.DelFEInfo(ip, port);
             redis.DelFEList(ip, port);
             redis.DelFEInfoForClient(feName);
-            redis.DelUserLogin(feName);
+            redis.DelUserLoginFE(feName);
             redis.DelFERoomList(feName);
 
         }
@@ -119,7 +126,7 @@ namespace Login
         {
             string[] felist = (string[])redis.GetFEList();
             newFE = null;
-
+            int result = -1;
             foreach (string feIpPort in felist)
             {
                 string fe = redis.GetFEName(feIpPort);
@@ -128,17 +135,18 @@ namespace Login
                 {
                     if (redis.GetRoomCount(fe, roomNo) > 10)
                     {
-                        return 1;
+                        result = 1;
                     }
                     else
                     {
                         redis.AddUserRoom(fe, roomNo, username);
                         newFE = (FrontEnd)redis.GetFEInfoForClient(fe);
-                        return 0;
+
+                        result = 0;
                     }
                 }
             }
-            return -1;
+            return result;
         }
     }
 }

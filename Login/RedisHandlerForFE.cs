@@ -37,7 +37,7 @@ namespace Login
             string username = redis.GetUserName(userid);
             redis.DelUser(username);
             redis.DelUserList(username);
-            return redis.SetUserLogin(feName, userid, false);
+            return redis.DelUserLogin(feName, userid);
         }
 
 

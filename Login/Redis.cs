@@ -28,7 +28,7 @@ namespace Login
         private readonly Lazy<ConnectionMultiplexer> LazyConnection
             = new Lazy<ConnectionMultiplexer>(() => ConnectionMultiplexer.Connect(configurationOptions));
 
-        private ConnectionMultiplexer Connection
+        public ConnectionMultiplexer Connection
         {
             get
             {
@@ -101,7 +101,7 @@ namespace Login
 
         public bool HasRoom(string feName, int roomNo)
         {
-            string key = CombineDelimiter(feName, "room", ":");
+            string key = CombineDelimiter(feName, "roomlist", ":");
             return db.SetContains(key, roomNo);
         }
 
@@ -222,7 +222,13 @@ namespace Login
             return db.StringGetBit(key, userID);
         }
 
-        public bool DelUserLogin(string feName)
+        public bool DelUserLoginFE(string feName)
+        {
+            string key = CombineDelimiter(feName, "login", ":");
+            return db.KeyDelete(key);
+        }
+
+        public bool DelUserLogin(string feName, long userID)
         {
             string key = CombineDelimiter(feName, "login", ":");
             return db.KeyDelete(key);
@@ -369,9 +375,6 @@ namespace Login
             return feNo;
         }
 
-        public void ClearDB()
-        {
-            //
-        }
+       
     }
 }

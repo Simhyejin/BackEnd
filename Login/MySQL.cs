@@ -54,7 +54,7 @@ namespace Login
                 createQuery.Append("USER_ID INT NOT NULL AUTO_INCREMENT,");
                 createQuery.Append("USER_NAME VARCHAR(20) NOT NULL,");
                 createQuery.Append("PASSWORD VARCHAR(20) NOT NULL,");
-                createQuery.Append("DUMMY BOOL NOT NULL,");
+                createQuery.Append("DUMMY int NOT NULL,");
                 createQuery.Append("CREATE_TIME DATETIME NOT NULL,");
                 createQuery.Append("PRIMARY KEY(user_id),");
                 createQuery.Append("UNIQUE INDEX(user_name))");
@@ -79,7 +79,7 @@ namespace Login
         /// <param name="user"></param>
         /// <param name="password"></param>
         /// <param name="isDummy"></param>
-        public bool InsertUser(string user, string password, bool isDummy)
+        public bool InsertUser(string user, string password, int isDummy)
         {
             try
             {
@@ -311,7 +311,6 @@ namespace Login
         }
 
         public int GetUserID(string user)
-
         {
             StringBuilder selectQuery = new StringBuilder();
             selectQuery.Append("SELECT USER_ID FROM Users ");
@@ -351,7 +350,7 @@ namespace Login
 
         }
 
-        public bool GetUserTypebyID(long id)
+        public int GetUserTypebyID(long id)
         {
             StringBuilder selectQuery = new StringBuilder();
             selectQuery.Append("SELECT DUMMY FROM Users ");
@@ -359,7 +358,8 @@ namespace Login
             selectQuery.Append("'" + id + "'");
 
             MySqlCommand command = new MySqlCommand(selectQuery.ToString(), conn);
-            return (bool)command.ExecuteScalar();
+            string result = command.ExecuteScalar().ToString();
+            return int.Parse(command.ExecuteScalar().ToString());
         }
 
     }

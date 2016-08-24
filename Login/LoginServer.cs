@@ -648,7 +648,7 @@ namespace Login
                 sendPacket.header.uid = header.uid;
                 sendPacket.data = null;
 
-                mysql.InsertUser(usr, pw, false);
+                mysql.InsertUser(usr, pw, 0);
                 Send(socket, sendPacket);
             }
             else
@@ -750,7 +750,7 @@ namespace Login
                 sendPacket.header.uid = header.uid;
                 sendPacket.data = null;
 
-                mysql.InsertUser(usr, pw, true);
+                mysql.InsertUser(usr, pw, 1);
                 Send(socket, sendPacket);
             }
             else
@@ -772,16 +772,22 @@ namespace Login
             FBSigninRequest loginRequest = (FBSigninRequest)mc.ByteToStructure(packet.data, typeof(FBSigninRequest));
             int id = mysql.GetUserID(new string(loginRequest.user).Split('\0')[0]);
 
+            string newFE = null;
             Packet sendPacket = new Packet();
             bool signin = mysql.Login(new string(loginRequest.user).Split('\0')[0], new string(loginRequest.password).Split('\0')[0]);
             bool dupSignIn = redis.DupplicateSignIn(id);
+
             if (id!=0 && signin && !dupSignIn)
             {
+                int isDummy = mysql.GetUserTypebyID(id);
+                if (isDummy == 1)
+                    heartBeatList.Remove(socket);
+
                 string cookie = MakeCookie(new string(loginRequest.user), new string(loginRequest.password));
 
                 string ip = null;
                 int port = 0;
-                string newFE = redis.GetRamdomFE(ref ip, ref port);
+                newFE = redis.GetRamdomFE(ref ip, ref port);
 
                 if (newFE != null)
                 {
@@ -818,6 +824,8 @@ namespace Login
                 Console.WriteLine("[Server][Send] Client({0}) Dupplicated Login {1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
             else if(id == 0)
                 Console.WriteLine("[Server][Send] Client({0}) Not exist User{1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
+            else if(newFE==null)
+                Console.WriteLine("[Server][Send] Client({0}) No FE Server{1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
             else
                 Console.WriteLine("[Server][Send] Client({0}) Password Wrong{1}", socket.RemoteEndPoint.ToString(), sendPacket.header.code);
         }
@@ -827,7 +835,7 @@ namespace Login
         {
             Header header = packet.header;
             string username = mysql.GetUserNamebyID(header.uid);
-            bool isDummy = mysql.GetUserTypebyID(header.uid);
+            int isDummy = mysql.GetUserTypebyID(header.uid);
 
             redis.ConnectPassSuccess(socket.RemoteEndPoint.ToString(), username, header.uid, isDummy);
         }

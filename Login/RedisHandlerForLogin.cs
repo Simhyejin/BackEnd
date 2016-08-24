@@ -104,7 +104,7 @@ namespace Login
             return newFE;
         }
 
-        public void ConnectPassSuccess(string feAddress, string username, long userid, bool isDummy)
+        public void ConnectPassSuccess(string feAddress, string username, long userid, int isDummy)
         {
             string feName = redis.GetFEName(feAddress);
             redis.AddUser(username, userid);
